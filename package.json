@@ -1,0 +1,18 @@
+{
+  "name": "blackbird",
+  "version": "0.1.0",
+  "description": "Sherlock Holmes in 1890s San Francisco: a 3D mobile detective game after Hammett's The Maltese Falcon.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.3"
+  }
+}

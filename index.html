@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0d1218" />
+  <meta name="apple-mobile-web-app-title" content="The Black Bird" />
+  <link rel="manifest" href="manifest.json" />
+  <title>The Black Bird</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Special+Elite&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body data-mode="title">
+  <div id="app">
+    <canvas id="gl"></canvas>
+    <div id="labels" class="hidden"></div>
+
+    <div id="hud" class="hidden">
+      <div id="objective"></div>
+      <div id="top-btns">
+        <button id="btn-book" aria-label="Casebook">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 5h14a4 4 0 0 1 4 4v18H10a4 4 0 0 1-4-4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 27a4 4 0 0 1 0-8h14M11 10h9M11 14h7" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+          <span>Casebook</span>
+        </button>
+        <button id="btn-palace" aria-label="Mind Palace">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 13 16 5l12 8M7 13v12M12 13v12M20 13v12M25 13v12M4 27h24" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <span>Mind Palace</span>
+        </button>
+      </div>
+      <div id="stick"><i></i></div>
+      <button id="btn-act" class="hidden"><span></span></button>
+      <button id="btn-focus" aria-label="Focus">
+        <div class="meter"></div>
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 24s7-12 20-12 20 12 20 12-7 12-20 12S4 24 4 24z" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="24" cy="24" r="6" fill="currentColor"/></svg>
+        <span>Focus</span>
+      </button>
+      <button id="btn-back" class="hidden">Step back</button>
+      <div id="toasts"></div>
+      <div id="say" class="hidden"></div>
+      <div id="desk-hint">WASD walk · drag to look · E examine/talk · F Focus · B Casebook · M Mind Palace</div>
+    </div>
+
+    <div id="dialogue" class="hidden"><div class="who"></div><div class="line"></div><div class="choices"></div></div>
+    <div id="book" class="sheet hidden"></div>
+    <div id="palace" class="sheet hidden"></div>
+    <div id="screen" class="screen"></div>
+
+    <div id="loading" class="screen show"><p>San Francisco, 1895…</p></div>
+    <div id="rotate" class="screen"><div class="phone"></div><p>Turn your phone sideways.</p></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
