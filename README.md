@@ -15,7 +15,7 @@ npm run dev        # http://localhost:5173
 npm run build      # production build in dist/
 ```
 
-Pushing to `main` publishes to GitHub Pages via `.github/workflows/deploy.yml`
+Pushing to `main` publishes to https://vspayce.github.io/blackbird/ via `.github/workflows/deploy.yml`
 (Settings → Pages → Source must be "GitHub Actions").
 
 Controls: touch stick on the left, drag to look, context button to examine or
