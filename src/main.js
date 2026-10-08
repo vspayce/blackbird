@@ -14,7 +14,7 @@ import { titleScreen, cards, accuse, endCard, hideScreen } from './ui/screens.js
 import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION } from './cases/archer.js';
 
 const HOLMES_LOOK = { model: 'holmes', coat: '#4a4740', trousers: '#2e2c2a', hat: 'deerstalker', hatColor: '#6b6250', cape: true, longCoat: true, hair: '#1d1712', height: 1.86 };
-const WALK = 2.3;           // m/s at full stick
+const WALK = 2.0;           // m/s at full stick: a brisk walk
 const R = 0.3;              // body radius for collisions
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _ray = new THREE.Ray();
 

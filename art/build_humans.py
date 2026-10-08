@@ -212,15 +212,26 @@ def aim(rig, bone, direction):
     pose_world(rig, bone, cur.rotation_difference(Vector(direction).normalized()))
 
 
-def rerest_arms_down(rig, meshes):
-    """MakeHuman rests in an A-pose; re-rest the character with the arms hanging, so garments and clips start relaxed."""
+def rerest_arms_down(rig, meshes, body, clearance=0.05):
+    """MakeHuman rests in an A-pose; re-rest the character standing naturally: feet under the hips and arms
+    hanging straight at the sides, the hands just clear of the hips (and of a coat over them)."""
+    bone = lambda b: rig.data.bones[b]
+    length = lambda b: (bone(b).tail_local - bone(b).head_local).length
+    bvh = world_mesh_bvh([body], ARM_GROUPS)
     for s, side in ((1, 'l'), (-1, 'r')):
-        aim(rig, f'upperarm_{side}', (s * 0.12, 0.02, -1))
         aim(rig, f'thigh_{side}', (s * 0.035, 0.0, -1))
-    bpy.context.view_layer.update()
-    for s, side in ((1, 'l'), (-1, 'r')):
-        # a slight natural bend at the elbow, palms toward the thighs
-        pose_world(rig, f'lowerarm_{side}', Quaternion((1, 0, 0), -0.12))
+        sh = bone(f'upperarm_{side}').head_local
+        reach = length(f'upperarm_{side}') + length(f'lowerarm_{side}') + 0.5 * length(f'hand_{side}')
+        z_hand = sh.z - reach * 0.97
+        ring = envelope(bvh, z_hand, (0.0, bone('pelvis').head_local.y), 48) or [0.17] * 48
+        hip = max(ring[12], ring[36])  # the sides, +X and -X
+        x = hip + clearance
+        dx = s * x - sh.x
+        d = Vector((dx, -0.02, -math.sqrt(max(0.01, reach ** 2 - dx ** 2)))).normalized()
+        aim(rig, f'upperarm_{side}', d)
+        bpy.context.view_layer.update()
+        aim_posed(rig, f'lowerarm_{side}', d + Vector((0, -0.08, 0)))  # the elbow just unlocked
+        aim_posed(rig, f'hand_{side}', d + Vector((0, -0.05, 0)))
     bpy.context.view_layer.update()
     # bake the posed shape into each mesh (only the armature deforming), then make that pose the rest pose
     dg = bpy.context.evaluated_depsgraph_get()
@@ -410,11 +421,14 @@ def transfer_weights(ob, src, rig, extra=None):
 
 
 def skirt_weights(rig, z_top, z_hem):
-    """Below the hips, a coat skirt follows the pelvis and, more toward the hem, the thigh on its side."""
+    """Below the hips a coat skirt hangs from the pelvis. Toward the hem the front panels follow the thigh on
+    their side, while the back hangs straight, the way a long coat swings."""
+    y0 = bone_head(rig, 'pelvis').y
     def f(co, w):
         if co.z > z_top: return None
-        k = min(1, (z_top - co.z) / max(0.01, z_top - z_hem)) * 0.45
-        side = 1 / (1 + math.exp(-co.x / 0.07))  # 0 = right, 1 = left
+        front = 1 / (1 + math.exp((co.y - y0) / 0.035))  # 1 at the front, 0 at the back
+        k = min(1, (z_top - co.z) / max(0.01, z_top - z_hem)) ** 1.3 * (0.08 + 0.5 * front)
+        side = 1 / (1 + math.exp(-co.x / 0.06))  # 0 = right, 1 = left
         return {'pelvis': 1 - k, 'thigh_l': k * side, 'thigh_r': k * (1 - side)}
     return f
 
@@ -478,10 +492,17 @@ def head_frame(rig, body):
     return h, top
 
 
+def brow_line(top):
+    """Height of the top of the eyebrows (hats sit just above them)."""
+    zs = [(o.matrix_world @ v.co).z for o in bpy.data.objects if o.type == 'MESH' and 'eyebrow' in o.name.lower()
+          for v in o.data.vertices]
+    return max(zs) if zs else top - 0.1
+
+
 def deerstalker(rig, body, mat):
     h, top = head_frame(rig, body)
     c = (0.0, h.y + 0.005)
-    zb = top - 0.075  # the band sits a little above the brows
+    zb = brow_line(top) + 0.03  # the band sits a little above the brows
     crown = lathe_obj('Deerstalker', mat, [(0.106, zb), (0.108, zb + 0.03), (0.1, zb + 0.06), (0.078, zb + 0.085),
                                            (0.04, zb + 0.1), (0.002, zb + 0.104)], c, sx=0.94, sy=1.1, tilt=-0.12)
     bm = bmesh.new(); bm.from_mesh(crown.data)
@@ -505,7 +526,7 @@ def top_hat(rig, body, mat):
     """A silk top hat, brim curled up at the sides."""
     h, top = head_frame(rig, body)
     c = (0.0, h.y + 0.005)
-    zb = top - 0.085
+    zb = brow_line(top) + 0.035
     ob = lathe_obj('TopHat', mat, [(0.17, zb - 0.002), (0.152, zb - 0.004), (0.108, zb), (0.104, zb + 0.004),
                                    (0.1, zb + 0.07), (0.104, zb + 0.15), (0.106, zb + 0.165), (0.104, zb + 0.168),
                                    (0.002, zb + 0.17)], c, sx=0.93, sy=1.12, tilt=-0.06)
@@ -537,7 +558,7 @@ def watch_chain(rig, coat_front, mat, z):
 def police_helmet(rig, body, mat, brass):
     h, top = head_frame(rig, body)
     c = (0.0, h.y + 0.005)
-    zb = top - 0.07
+    zb = brow_line(top) + 0.03
     ob = lathe_obj('Helmet', mat, [(0.128, zb - 0.006), (0.112, zb), (0.11, zb + 0.06), (0.1, zb + 0.13),
                                    (0.075, zb + 0.18), (0.04, zb + 0.2), (0.002, zb + 0.205)], c, sx=0.95, sy=1.12,
                    tilt=-0.08)
@@ -574,6 +595,7 @@ def aim_posed(rig, bone, direction):
     """Turn a bone, as currently posed (parents included), to point along an armature-space direction."""
     bpy.context.view_layer.update()
     pb = rig.pose.bones[bone]
+    pb.rotation_mode = 'QUATERNION'
     cur = (pb.tail - pb.head).normalized()
     R = cur.rotation_difference(Vector(direction).normalized()).to_matrix()
     M = pb.matrix.to_3x3().normalized()
@@ -629,18 +651,18 @@ def make_clips(rig, gait=1.0):
     }) for f in range(0, 121, 10)])
 
     # Walk: one stride each side in 1.1 s. Forward swing is a negative turn about X (the character faces -Y).
-    n = 33
+    n = 36  # 1.2 s for two steps of about 0.85 m: 1.45 m/s at timeScale 1
     poses = []
     for f in range(0, n + 1, 3):
         p = 2 * math.pi * f / n
         s = math.sin(p)
-        knee = lambda ph: max(0.0, math.sin(ph - 0.9)) ** 1.5 * 0.65 + 0.06
+        knee = lambda ph: max(0.0, math.sin(ph - 0.7)) ** 1.3 * 0.75 + 0.05
         poses.append((f, {
-            'thigh_l': (X, -0.32 * s * gait), 'thigh_r': (X, 0.32 * s * gait),
+            'thigh_l': (X, -0.5 * s * gait), 'thigh_r': (X, 0.5 * s * gait),
             'calf_l': (X, knee(p + math.pi) * gait), 'calf_r': (X, knee(p) * gait),
-            'foot_l': (X, -0.15 * max(0, math.sin(p + math.pi - 1.2))), 'foot_r': (X, -0.15 * max(0, math.sin(p - 1.2))),
-            'upperarm_l': (X, 0.28 * s * gait), 'upperarm_r': (X, -0.28 * s * gait),
-            'lowerarm_l': (X, -0.15 - 0.12 * max(0, -s)), 'lowerarm_r': (X, -0.15 - 0.12 * max(0, s)),
+            'foot_l': (X, -0.25 * max(0, math.sin(p + math.pi - 1.0))), 'foot_r': (X, -0.25 * max(0, math.sin(p - 1.0))),
+            'upperarm_l': (X, 0.22 * s * gait), 'upperarm_r': (X, -0.22 * s * gait),
+            'lowerarm_l': (X, -0.06 - 0.1 * max(0, -s)), 'lowerarm_r': (X, -0.06 - 0.1 * max(0, s)),
             'pelvis': (Z, 0.08 * s * gait), 'spine_03': (Z, -0.1 * s * gait),
             'spine_01': (X, -0.03),
             'pelvis_z': 0.018 * abs(math.cos(p)) - 0.01,
@@ -688,7 +710,7 @@ CAST = {
               'eyebrows/eyebrows-angle-down': 0.2, 'neck/neck-scale-vert-incr': 0.3},
         hair=['short02'], hair_color='#0d0b0a', eyebrows='eyebrow012', slick=True, eyes='grey',
         clothes=['toigo_male_suit_3', 'shoes06'], suit='#121212', shoes='#0b0a0a',
-        coat='frock', coat_color='#141414', hat='tophat', chain=True,
+        coat='frock', coat_color='#141414', hat='tophat', chain=True, hand_clearance=0.07,
     ),
     # Stocky army doctor in a light tweed suit, brown bowler, moustache.
     'watson': dict(
@@ -711,7 +733,7 @@ CAST = {
         hair=['short01'], hair_color='#2e2219', eyebrows='eyebrow001', eyes='brown',
         clothes=['toigo_male_suit_3', 'shoes06', 'grinsegold_moustache', 'culturalibre_cl_bowler_hat'],
         suit='#2a2a2c', shoes='#0e0c0b', moustache='#2e2219', bowler='#141414',
-        coat='overcoat', coat_color='#3a3c40',
+        coat='overcoat', coat_color='#3a3c40', hand_clearance=0.085,
     ),
     # Young beat constable: navy tunic, brass buttons, belt, helmet.
     'kelly': dict(
@@ -732,7 +754,7 @@ CAST = {
         hair=['short02'], hair_color='#4a3324', eyebrows='eyebrow003', eyes='brown',
         clothes=['toigo_male_suit_3', 'shoes06', 'grinsegold_moustache'],
         suit='#2b2925', shoes='#120f0d', moustache='#4a3324',
-        coat='buttoned', coat_color='#3d3a33', hem=0.12,
+        coat='buttoned', coat_color='#3d3a33', hem=0.12, hand_clearance=0.085,
     ),
 }
 
@@ -751,7 +773,7 @@ def build(name, c):
     body, rig, parts = make_body(c)
     rig.name = f'{name.capitalize()}_rig'
     meshes = [o for o in rig.children if o.type == 'MESH']
-    rerest_arms_down(rig, meshes)
+    rerest_arms_down(rig, meshes, body, c.get('hand_clearance', 0.05))
 
     suit = parts.get('toigo_male_suit_3')
     if suit:

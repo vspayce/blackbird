@@ -9,7 +9,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const models = new Map();
-const WALK_CLIP_SPEED = 1.25;  // m/s covered by one play of the Walk clip at timeScale 1
+const WALK_CLIP_SPEED = 1.45;  // m/s covered by one play of the Walk clip at timeScale 1
 
 // Load models before building figures; a missing model falls back to primitives.
 export function loadModels(names) {
