@@ -222,6 +222,7 @@ class Game {
     this.dialogue.open(id, {
       state: this.state,
       onGive: c => this.gain(c),
+      onCall: right => { right ? audio.deduce() : audio.wrong(); this.hud.toast(right ? 'right' : 'wrong', right ? 'You read them right' : 'You misjudged them'); },
       onClose: () => this.setMode('explore'),
     });
   }
@@ -257,6 +258,7 @@ class Game {
       state: this.state,
       sound: audio,
       onDeduce: d => { this.state.addDeduction(d); audio.deduce(); },
+      onMiss: () => { this.state.misses++; this.state.save(); audio.wrong(); },
       onClose: () => this.setMode('explore'),
       onConclude: () => this.conclude(),
     });
@@ -266,11 +268,11 @@ class Game {
     this.setMode('accuse');
     accuse({
       onAnswer: right => {
-        if (!right) { audio.wrong(); return; }
+        if (!right) { this.state.wrongAccusations++; this.state.save(); audio.wrong(); return; }
         audio.deduce();
         cards(CONCLUSION.epilogue, () => {
           this.state.solved = true; this.state.save();
-          endCard({ onTitle: () => this.title() });
+          endCard({ rating: this.state.rating(), onTitle: () => this.title() });
         }, 'intro epilogue');
       },
       onBack: () => { hideScreen(); this.setMode('explore'); },
@@ -423,7 +425,10 @@ class Game {
           if (Math.hypot(o.x - p.x, o.z - p.z) > 6) continue;
           const sc = this.project(o.x, o.y + hgt, o.z);
           if (!sc) continue;
-          READS[id].forEach((txt, i) => hud.label(`read:${id}:${i}`, sc[0] + 18, sc[1] - 34 + i * 20, txt, 'read'));
+          READS[id].forEach((txt, i) => {
+            hud.label(`read:${id}:${i}`, sc[0] + 18, sc[1] - 34 + i * 20, txt, 'read');
+            if (f > 0.9) this.state.addRead(`${id}:${i}`);
+          });
         }
       }
     } else if (this.mode === 'closeup' && this.camT > 0.85) {

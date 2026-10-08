@@ -5,7 +5,8 @@ const $ = id => document.getElementById(id);
 export class HUD {
   constructor() {
     this.root = $('hud');
-    this.objective = $('objective');
+    this.objective = $('objective').querySelector('span');
+    this.objBox = $('objective');
     this.act = $('btn-act');
     this.actLabel = this.act.querySelector('span');
     this.focusBtn = $('btn-focus');
@@ -25,7 +26,7 @@ export class HUD {
   setObjective(text) {
     if (this.objective.textContent !== text) {
       this.objective.textContent = text;
-      this.objective.classList.remove('flash'); void this.objective.offsetWidth; this.objective.classList.add('flash');
+      this.objBox.classList.remove('flash'); void this.objBox.offsetWidth; this.objBox.classList.add('flash');
     }
   }
 
@@ -39,14 +40,16 @@ export class HUD {
     this.focusRing.style.setProperty('--p', meter.toFixed(3));
   }
 
+  // a slip of paper tucked into the notebook: new clue, testimony, deduction, or a call in an interrogation
   toast(kind, text) {
     const d = document.createElement('div');
     d.className = 'toast ' + kind;
-    d.innerHTML = `<b>${kind === 'deduction' ? 'Deduction' : kind === 'testimony' ? 'Testimony' : 'New clue'}</b><span></span>`;
-    d.querySelector('span').textContent = text;
+    const head = { deduction: 'Deduction', testimony: 'Testimony noted', clue: 'Clue noted', right: 'Well read', wrong: 'A misstep' }[kind];
+    d.innerHTML = `<small>${head}</small><b></b>`;
+    d.querySelector('b').textContent = text;
     this.toasts.appendChild(d);
-    setTimeout(() => d.classList.add('out'), 2600);
-    setTimeout(() => d.remove(), 3200);
+    setTimeout(() => d.classList.add('out'), 3000);
+    setTimeout(() => d.remove(), 3600);
   }
 
   // Holmes thinking aloud: tap to dismiss, otherwise fades on its own

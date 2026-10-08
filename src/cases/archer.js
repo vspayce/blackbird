@@ -27,9 +27,10 @@ export const CLUES = {
   heel: { kind: 'clue', title: 'Narrow heel prints', text: 'In the damp between the cobbles: a narrow, pointed heel. A lady\'s boot, small, and standing an arm\'s length from where Archer fell.' },
   scent: { kind: 'clue', title: 'Lavender water', text: 'Under the alley lamp the fog still holds it. Lavender water. Someone stood here and waited.' },
   webley: { kind: 'clue', title: 'An English revolver', text: 'In the weeds past the fence: a Webley-Fosbery, one chamber fired. Rare in San Francisco. Thrown, not dropped. It was meant to be found.' },
-  job: { kind: 'testimony', title: 'Watson: the job', text: 'Miss Wonderly hired Archer to follow Floyd Thursby, who she said had run off with her younger sister. Archer took the night watch himself.' },
-  hack: { kind: 'testimony', title: 'Polhaus: a hack', text: 'Patrolman Kelly saw a hired hack pull away from Bush Street just before he found the body. He did not get the number.' },
-  thursby: { kind: 'testimony', title: 'Kelly: Thursby', text: 'Kelly knows Thursby by sight: an English gunman who drinks at the Belvedere and has boasted of his "Webley". Kelly saw him at the bar at one o\'clock, very drunk.' },
+  job: { kind: 'testimony', who: 'watson', title: 'Watson: the job', text: 'Miss Wonderly hired Archer to follow Floyd Thursby, who she said had run off with her younger sister. Archer took the night watch himself.' },
+  hack: { kind: 'testimony', who: 'polhaus', title: 'Polhaus: a hack', text: 'Patrolman Kelly saw a hired hack pull away from Bush Street just before he found the body. He did not get the number.' },
+  thursby: { kind: 'testimony', who: 'kelly', title: 'Kelly: Thursby', text: 'Kelly knows Thursby by sight: an English gunman who drinks at the Belvedere and has boasted of his "Webley". Kelly saw him at the bar at one o\'clock, very drunk.' },
+  alibi: { kind: 'testimony', who: 'kelly', title: 'Kelly: the shot', text: 'Kelly was taking a nip at the Belvedere\'s back door when he heard the shot, at ten to two. Thursby was at the bar beside him, too drunk to stand.' },
 };
 
 // Each deduction comes from two facts (clues or other deductions).
@@ -41,6 +42,7 @@ export const DEDUCTIONS = {
   wasWonderly: { from: ['lady', 'wonderly'], title: 'Miss Wonderly stood here', text: 'Lavender water and a small, narrow boot. It was Miss Wonderly who waited under the lamp.', key: true },
   lured: { from: ['card', 'job'], title: 'Archer came to meet someone', text: 'He was not following Thursby here. The card says he had an appointment, made in someone else\'s hand.' },
   frame: { from: ['webley', 'thursby'], title: 'The gun points at Thursby', text: 'Thursby\'s own English revolver, thrown where the police would find it, while Thursby was drunk at the Belvedere. Somebody wants him hanged for this.', key: true },
+  innocent: { from: ['alibi', 'frame'], title: 'Thursby did not fire', text: 'Thursby was at the Belvedere when the shot was fired. His gun was here; he was not. Someone borrowed it.' },
   backed: { from: ['fence', 'heel'], title: 'The killer came from the street', text: 'Archer stood with the dead end behind him. Whoever met him came from Bush Street and stood between him and the way out.' },
 };
 
@@ -71,9 +73,17 @@ export const READS = {
 
 // People in the scene. pos is where they stand; Watson follows Holmes.
 export const PEOPLE = {
-  watson: { name: 'Dr. Watson', look: { coat: '#5a4632', trousers: '#3b3128', hat: 'bowler', hatColor: '#2a211a', moustache: '#6b4b2e', hair: '#6b4b2e', longCoat: true, height: 1.76 } },
-  polhaus: { name: 'Sgt. Polhaus', pos: [-1.5, -16.4], face: [0.5, -19.5], look: { coat: '#2f3238', trousers: '#25262a', hat: 'bowler', hatColor: '#1b1c20', moustache: '#3a2a1e', longCoat: true, height: 1.84 } },
-  kelly: { name: 'Patrolman Kelly', pos: [1.6, 6.2], face: [0, 12], look: { coat: '#1d2740', trousers: '#1d2740', hat: 'helmet', hatColor: '#1a2238', buttons: true, height: 1.8 } },
+  watson: { name: 'Dr. Watson', role: 'Friend and chronicler', note: 'Liked Archer more than he will say. Takes people at their word, which is why I keep him by me.', look: { coat: '#5a4632', trousers: '#3b3128', hat: 'bowler', hatColor: '#2a211a', moustache: '#6b4b2e', hair: '#6b4b2e', longCoat: true, height: 1.76 } },
+  polhaus: { name: 'Sgt. Polhaus', role: 'San Francisco Police', note: 'Slow-spoken, not slow-witted. Answers to Lieutenant Dundy, who likes his cases simple.', pos: [-1.5, -16.4], face: [0.5, -19.5], look: { coat: '#2f3238', trousers: '#25262a', hat: 'bowler', hatColor: '#1b1c20', moustache: '#3a2a1e', longCoat: true, height: 1.84 } },
+  kelly: { name: 'Patrolman Kelly', role: 'Beat constable, Bush Street', note: 'Young, keen and frightened of his sergeant. Found the body.', pos: [1.6, 6.2], face: [0, 12], look: { coat: '#1d2740', trousers: '#1d2740', hat: 'helmet', hatColor: '#1a2238', buttons: true, height: 1.8 } },
+};
+
+// People who are not in the alley but belong in the notebook. needs: a clue
+// or deduction that brings them into the case.
+export const ABSENT = {
+  archer: { name: 'Miles Archer', role: 'The victim', note: 'Former Pinkerton man, partner in Spade & Archer. Brave, vain, and fond of a pretty client.' },
+  wonderly: { name: 'Miss Wonderly', role: 'The client', note: 'Hired Archer yesterday. Blue gloves, lavender water, a sister who may not exist.', needs: 'wonderly' },
+  thursby: { name: 'Floyd Thursby', role: 'The man Archer was following', note: 'English. Drinks at the Belvedere. Owns a Webley-Fosbery, and tells everyone so.', needs: 'job' },
 };
 
 // Places to examine. focus: only visible while Focus is on (until found).
@@ -111,6 +121,16 @@ export const TALK = {
       { q: 'Has anything been moved?', a: [['Polhaus', 'Not a thing. Dundy\'ll have my hide if it is. Look all you like, just don\'t pocket anything.']] },
       { q: 'Archer never drew his gun.', needs: ['gun'], a: [['Polhaus', 'No. Miles was careless, but he weren\'t that careless. Not with a stranger.'], ['Holmes', 'Precisely, Sergeant. Not with a stranger.']] },
       { q: 'What of Floyd Thursby?', needs: ['job'], a: [['Polhaus', 'The fella Miles was tailing? Ask Kelly. Kelly knows every barfly on the Coast.']] },
+      {
+        q: 'What does the Lieutenant make of it?', needs: ['gun'],
+        a: [['Polhaus', 'Dundy? Robbery, plain as day. Some footpad caught Miles in the dark and ran for it.']],
+        challenge: {
+          tell: 'Polhaus watches you over his cigar, waiting.',
+          answer: 'lie', evidence: ['gun', 'webley'],
+          right: [['Holmes', 'A footpad who leaves a loaded revolver on his victim\'s hip? You do not believe that, Sergeant.'], ['Polhaus', 'Had to see if you\'re as sharp as they say. No. It weren\'t robbery. But Dundy wants it to be, so mind how you go.']],
+          wrong: [['Polhaus', 'Well, that\'s the official line, Mr. Holmes. You can take it or leave it.']],
+        },
+      },
     ],
   },
   watson: {
@@ -125,7 +145,16 @@ export const TALK = {
     hello: [['Kelly', 'Terrible thing, sir. Terrible. I was only round the corner.']],
     topics: [
       { q: 'Do you know Floyd Thursby?', needs: ['job'], a: [['Kelly', 'Thursby? Englishman, drinks at the Belvedere. Always going on about his "Webley", like no one else ever owned a gun.'], ['Kelly', 'He was in there at one, sir. Drunk as a lord. I saw him through the window on my round.']], gives: 'thursby' },
-      { q: 'You came running.', a: [['Kelly', 'I heard nothing, sir, honest. Just saw the hack go and thought I\'d look down the alley. Wish to God I hadn\'t.']] },
+      {
+        q: 'You came running.',
+        a: [['Kelly', 'I heard nothing, sir, honest. Just saw the hack go and thought I\'d look down the alley. Wish to God I hadn\'t.']],
+        challenge: {
+          tell: 'Kelly glances at his sergeant and wipes his mouth with the back of his glove.',
+          answer: 'doubt', gives: 'alibi',
+          right: [['Holmes', 'There is whisky on your breath, Constable, and you are not telling me everything.'], ['Kelly', '…I was at the Belvedere\'s back door, sir. One nip, against the cold. I heard the shot at ten to two, plain as anything.'], ['Kelly', 'And Thursby was at the bar the whole time, sir. Couldn\'t stand, let alone shoot anybody. Please don\'t tell the sergeant.']],
+          wrong: [['Kelly', 'I\'ve told you all I know, sir.'], ['Holmes', '(He has closed up like an oyster. I pushed too hard, or not hard enough.)']],
+        },
+      },
     ],
   },
 };

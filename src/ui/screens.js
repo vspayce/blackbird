@@ -72,11 +72,15 @@ export function accuse({ onAnswer, onBack }) {
   s.querySelector('.back').onclick = onBack;
 }
 
-export function endCard({ onTitle }) {
+// End of chapter: the case rating, then on to what comes next.
+export function endCard({ rating, onTitle }) {
+  const stars = '★'.repeat(rating.stars) + '☆'.repeat(5 - rating.stars);
   const s = show(`<div class="title end">
-      <p class="pre">End of Chapter I</p>
-      <h1>To be continued</h1>
-      <p class="sub">Chapter II · The Levantine</p>
+      <p class="pre">Case closed</p>
+      <h1>Chapter I</h1>
+      <div class="rating"><div class="stars" aria-label="${rating.stars} of 5">${stars}</div>
+        <table>${rating.rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table></div>
+      <p class="sub">To be continued · Chapter II · The Levantine</p>
       <div class="btns"><button class="primary">Title screen</button></div>
     </div>`);
   s.querySelector('button').onclick = onTitle;
