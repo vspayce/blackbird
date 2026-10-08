@@ -5,7 +5,7 @@ import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { fullscreen } from './core/fullscreen.js';
 import { Alley } from './world/alley.js';
-import { createFigure } from './game/figure.js';
+import { createFigure, loadModels } from './game/figure.js';
 import { CaseState } from './game/state.js';
 import { HUD } from './ui/hud.js';
 import { Dialogue } from './ui/dialogue.js';
@@ -13,7 +13,7 @@ import { Casebook, MindPalace } from './ui/palace.js';
 import { titleScreen, cards, accuse, endCard, hideScreen } from './ui/screens.js';
 import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION } from './cases/archer.js';
 
-const HOLMES_LOOK = { coat: '#4a4740', trousers: '#2e2c2a', hat: 'deerstalker', hatColor: '#6b6250', cape: true, longCoat: true, hair: '#1d1712', height: 1.86 };
+const HOLMES_LOOK = { model: 'holmes', coat: '#4a4740', trousers: '#2e2c2a', hat: 'deerstalker', hatColor: '#6b6250', cape: true, longCoat: true, hair: '#1d1712', height: 1.86 };
 const WALK = 2.3;           // m/s at full stick
 const R = 0.3;              // body radius for collisions
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _ray = new THREE.Ray();
@@ -474,4 +474,4 @@ class Game {
   }
 }
 
-window.game = new Game();
+loadModels(['holmes']).then(() => { window.game = new Game(); });

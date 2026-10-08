@@ -1,7 +1,28 @@
-// Stylised low-poly people built from primitives. Placeholders until the
-// skinned characters in DESIGN.md exist; the pivots (hips, legs, arms, head)
-// match the bone names those models will carry so animation code carries over.
+// Stylised low-poly people. Characters built in Blender (art/build_characters.py)
+// load from public/models/<name>.glb as a hierarchy of pivots (hips, torso,
+// head, leg_R/leg_L, arm_R/arm_L); anyone without a model is built from
+// primitives with the same pivots, so the animation code drives both.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const models = new Map();
+
+// Load models before building figures; a missing model falls back to primitives.
+export function loadModels(names) {
+  const loader = new GLTFLoader();
+  return Promise.all(names.map(n => loader.loadAsync(`models/${n}.glb`)
+    .then(g => models.set(n, g.scene))
+    .catch(e => console.warn(`model ${n} not loaded, using primitives`, e))));
+}
+
+function fromModel(src, o) {
+  const root = src.clone(true);
+  const get = n => root.getObjectByName(n);
+  const body = get('body');
+  body.scale.setScalar((o.height ?? 1.8) / 1.8);
+  return withAnimation({ root, body, hips: get('hips'), torso: get('torso'), head: get('head'),
+    legs: [get('leg_R'), get('leg_L')], arms: [get('arm_R'), get('arm_L')] });
+}
 
 const mats = new Map();
 function mat(color, rough = 0.85) {
@@ -52,6 +73,7 @@ function hat(type, color) {
 
 // o: { height, coat, trousers, skin, hair, hat, hatColor, longCoat, cape, moustache, skirt, buttons }
 export function createFigure(o = {}) {
+  if (o.model && models.has(o.model)) return fromModel(models.get(o.model), o);
   const s = (o.height ?? 1.8) / 1.8;
   const root = new THREE.Group();
   const body = new THREE.Group();
@@ -111,7 +133,12 @@ export function createFigure(o = {}) {
     head.add(h);
   }
 
-  const parts = { root, body, hips, legs, arms, torso, head };
+  return withAnimation({ root, body, hips, legs, arms, torso, head });
+}
+
+function withAnimation(parts) {
+  const { hips, legs, arms, torso } = parts;
+  const hipY = hips.position.y;
   let phase = Math.random() * 10;
 
   // speed in m/s; 0 = idle
@@ -123,10 +150,10 @@ export function createFigure(o = {}) {
     legs[1].rotation.x = -sw * 0.55 * walk;
     arms[0].rotation.x = -sw * 0.4 * walk;
     arms[1].rotation.x = sw * 0.4 * walk;
-    hips.position.y = 0.92 + Math.abs(Math.cos(phase)) * 0.035 * walk;
+    hips.position.y = hipY + Math.abs(Math.cos(phase)) * 0.035 * walk;
     // breathing when still
     torso.rotation.x = 0.03 * walk + Math.sin(t * 1.3) * 0.012 * (1 - walk);
   }
 
-  return { ...parts, animate, object: root };
+  return { ...parts, animate, object: parts.root };
 }
