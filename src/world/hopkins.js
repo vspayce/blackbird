@@ -13,7 +13,7 @@ export function loadHopkins() {
   ]);
 }
 
-const LIGHTS = 5;  // a handful of gas lights follow Holmes from room to room; phones can't afford one per lamp
+const LIGHTS = 6;  // a handful of gas lights follow Holmes from room to room; phones can't afford one per lamp
 
 export class Hopkins {
   constructor(scene) {
@@ -37,9 +37,10 @@ export class Hopkins {
       }
     });
 
-    scene.add(new THREE.HemisphereLight('#4a5a78', '#1a120c', 0.55));
-    const moon = new THREE.DirectionalLight('#9ab0d0', 0.5);
-    moon.position.set(-20, 40, -30);
+    scene.add(new THREE.HemisphereLight('#4a5a78', '#1a120c', 0.6));
+    // the moon is behind the house over the bay; light the street front from the other side, softly
+    const moon = new THREE.DirectionalLight('#9ab0d0', 0.85);
+    moon.position.set(-30, 45, 60);
     scene.add(moon);
     this.gas = [];
     for (let i = 0; i < LIGHTS; i++) {
@@ -51,8 +52,20 @@ export class Hopkins {
     this.buildCity();
   }
 
+  // Floor height under (x, z): the terrace is 0, California Street below the wall, ramps and steps between.
+  // Up in the tower the floor is wherever Holmes already is.
+  groundAt(x, z, y) {
+    if (y > 10) return y;
+    const g = this.data.ground;
+    for (const [x0, x1, z0, z1, y0, y1] of g.ramps) {
+      if (x >= x0 && x <= x1 && z >= z0 && z <= z1) return y0 + (y1 - y0) * (z - z0) / (z1 - z0);
+    }
+    return z > g.wall ? g.street : 0;
+  }
+
   roomAt(p) {
     if (p.y > 10) return 'The Tower Observatory';
+    if (p.z > this.data.ground.wall) return 'California Street';
     const r = this.rooms.find(r => p.x > r.x0 && p.x < r.x1 && p.z > r.z0 && p.z < r.z1);
     return r ? r.name : 'The Grounds';
   }

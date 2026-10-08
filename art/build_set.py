@@ -16,35 +16,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from setkit import *  # noqa: F401,F403  (bpy, bmesh, math, np, Vector, Matrix and the kit)
 # --- pieces ---------------------------------------------------------------------------
 
-def gas_lamp(x, z, h=3.7):
-    """San Francisco cast-iron gas lamp: plinth, fluted column, ladder bar, lantern, crown."""
-    i = 'iron'
-    cyl(i, (x, 0, z), 0.12, 0.2, 0.2, seg=8)
-    cyl(i, (x, 0.12, z), 0.45, 0.17, 0.12, seg=8)
-    cyl(i, (x, 0.57, z), 0.06, 0.14, 0.14, seg=8)
-    for k in range(8):  # flutes
-        a = k * math.pi / 4
-        cyl(i, (x + math.cos(a) * 0.07, 0.63, z + math.sin(a) * 0.07), h - 1.35, 0.022, 0.016, seg=5)
-    cyl(i, (x, 0.63, z), h - 1.35, 0.075, 0.055, seg=10)
-    yb = h - 0.72
-    cyl(i, (x, yb, z), 0.06, 0.09, 0.09, seg=10)
-    tube(i, [(x - 0.42, yb + 0.03, z), (x + 0.42, yb + 0.03, z)], 0.018)  # the lamplighter's ladder bar
-    for s in (-1, 1): sphere(i, (x + s * 0.43, yb + 0.03, z), 0.03, 8)
-    cyl(i, (x, yb + 0.06, z), 0.12, 0.05, 0.11, seg=10)
-    # lantern: four tapered panes, framed
-    y0, y1 = yb + 0.18, yb + 0.62
-    cyl('lamp_glass', (x, y0, z), y1 - y0, 0.13, 0.2, seg=4, cap=True)
-    for k in range(4):
-        a = k * math.pi / 2 + math.pi / 4
-        tube(i, [(x + math.cos(a) * 0.13, y0, z + math.sin(a) * 0.13), (x + math.cos(a) * 0.2, y1, z + math.sin(a) * 0.2)], 0.012)
-    cyl(i, (x, y0 - 0.03, z), 0.04, 0.15, 0.15, seg=4)
-    cyl(i, (x, y1, z), 0.05, 0.23, 0.23, seg=4)
-    cyl(i, (x, y1 + 0.05, z), 0.16, 0.24, 0.05, seg=4)  # crown
-    cyl(i, (x, y1 + 0.21, z), 0.06, 0.04, 0.02, seg=6)
-    sphere(i, (x, y1 + 0.3, z), 0.035, 8)
-    return Vector((x, (y0 + y1) / 2, z))
-
-
 def bracket_lamp(x_wall, y, z, out=1):
     """Gas lamp on a scrolled iron bracket off a wall (out = +1 to stick out along +x)."""
     i = 'iron'

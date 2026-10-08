@@ -186,10 +186,11 @@ class Game {
       const s = this.world.data.spawn;
       this.holmes.object.position.fromArray(s.pos);
       this.holmes.object.rotation.y = s.yaw;
-      this.people.watson.fig.object.position.set(s.pos[0] + 1.0, 0, s.pos[2] + 1.0);
-      this.yaw = s.yaw - Math.PI; this.pitch = 0.22;
+      this.people.watson.fig.object.position.set(s.pos[0] - 1.1, s.pos[1], s.pos[2] - 0.7);
+      this.yaw = s.yaw - Math.PI; this.pitch = -0.12;  // looking up at the house over the wall
+      this.camDistNow = this.camDist;
       this.setMode('explore');
-      setTimeout(() => this.hud.say('The Hopkins house. Four years an art school, and still the grandest folly on the hill.'), 600);
+      setTimeout(() => this.hud.say('There it is, Watson: the Hopkins house. Four years an art school, and still the grandest folly on Nob Hill.'), 600);
       return;
     }
     this.holmes.object.position.set(CHAPTER.start.x, 0, CHAPTER.start.z);
@@ -371,6 +372,13 @@ class Game {
     }
   }
 
+  // walk up and down slopes and steps where the world has them
+  followGround(pos, dt) {
+    if (!this.world.groundAt) return;
+    const g = this.world.groundAt(pos.x, pos.z, pos.y);
+    pos.y += (g - pos.y) * Math.min(1, dt * 14);
+  }
+
   updateHolmes(dt) {
     const look = this.input.takeLook();
     this.yaw -= look.x * 0.006;
@@ -386,6 +394,7 @@ class Game {
       const k = sp / Math.hypot(vx, vz);
       o.position.x += vx * k * dt; o.position.z += vz * k * dt;
       this.collide(o.position);
+      this.followGround(o.position, dt);
       const target = Math.atan2(vx, vz);
       let d = target - o.rotation.y;
       d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -412,6 +421,7 @@ class Game {
       sp = Math.min(WALK * 1.05, d * 1.6);
       o.position.x += dx / d * sp * dt; o.position.z += dz / d * sp * dt;
       this.collide(o.position);
+      this.followGround(o.position, dt);
       const a = Math.atan2(dx, dz);
       o.rotation.y += Math.atan2(Math.sin(a - o.rotation.y), Math.cos(a - o.rotation.y)) * Math.min(1, dt * 8);
     } else if (this.mode !== 'talk') {

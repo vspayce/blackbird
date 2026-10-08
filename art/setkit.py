@@ -272,6 +272,46 @@ def text(mat, s, F, u, v, w, size, align='CENTER', extrude=0.008):
     bpy.data.objects.remove(tmp); bpy.data.meshes.remove(me); bpy.data.meshes.remove(me2)
 
 
+def gas_lamp(x, z, h=3.7, y=0.0):
+    """San Francisco cast-iron gas lamp: plinth, fluted column, ladder bar, lantern, crown. y: ground height."""
+    i = 'iron'
+    cyl(i, (x, 0 + y, z), 0.12, 0.2, 0.2, seg=8)
+    cyl(i, (x, 0.12 + y, z), 0.45, 0.17, 0.12, seg=8)
+    cyl(i, (x, 0.57 + y, z), 0.06, 0.14, 0.14, seg=8)
+    for k in range(8):  # flutes
+        a = k * math.pi / 4
+        cyl(i, (x + math.cos(a) * 0.07, 0.63 + y, z + math.sin(a) * 0.07), h - 1.35, 0.022, 0.016, seg=5)
+    cyl(i, (x, 0.63 + y, z), h - 1.35, 0.075, 0.055, seg=10)
+    yb = h - 0.72
+    cyl(i, (x, yb + y, z), 0.06, 0.09, 0.09, seg=10)
+    tube(i, [(x - 0.42, yb + 0.03 + y, z), (x + 0.42, yb + 0.03 + y, z)], 0.018)  # the lamplighter's ladder bar
+    for s in (-1, 1): sphere(i, (x + s * 0.43, yb + 0.03 + y, z), 0.03, 8)
+    cyl(i, (x, yb + 0.06 + y, z), 0.12, 0.05, 0.11, seg=10)
+    # lantern: four tapered panes, framed
+    y0, y1 = yb + 0.18, yb + 0.62
+    cyl('lamp_glass', (x, y0 + y, z), y1 - y0, 0.13, 0.2, seg=4, cap=True)
+    for k in range(4):
+        a = k * math.pi / 2 + math.pi / 4
+        tube(i, [(x + math.cos(a) * 0.13, y0 + y, z + math.sin(a) * 0.13), (x + math.cos(a) * 0.2, y1 + y, z + math.sin(a) * 0.2)], 0.012)
+    cyl(i, (x, y0 - 0.03 + y, z), 0.04, 0.15, 0.15, seg=4)
+    cyl(i, (x, y1 + y, z), 0.05, 0.23, 0.23, seg=4)
+    cyl(i, (x, y1 + 0.05 + y, z), 0.16, 0.24, 0.05, seg=4)  # crown
+    cyl(i, (x, y1 + 0.21 + y, z), 0.06, 0.04, 0.02, seg=6)
+    sphere(i, (x, y1 + 0.3 + y, z), 0.035, 8)
+    return Vector((x, (y0 + y1) / 2 + y, z))
+
+
+def canvas(mat, corners, uv=((0, 0), (1, 0), (1, 1), (0, 1))):
+    """A quad whose texture is fitted to it (a painting, a rug, a mirror), not tiled by the metre.
+    Register its material with scale=None so finish() leaves these UVs alone."""
+    bm = bm_for(mat)
+    layer = bm.loops.layers.uv.verify()
+    f = bm.faces.new([bm.verts.new(Vector(c)) for c in corners])
+    for loop, t in zip(f.loops, uv):
+        loop[layer].uv = t
+    return f
+
+
 def finish(name):
     """Turn the per-material bmeshes into objects with world-space UVs, under one root."""
     root = bpy.data.objects.new(name, None)
@@ -280,7 +320,7 @@ def finish(name):
         m, scale = MATS[mat]
         uv = bm.loops.layers.uv.verify()
         bm.normal_update()
-        for f in bm.faces:
+        for f in (bm.faces if scale else []):  # scale None: UVs were fitted when the faces were made
             n = f.normal
             ax = max(range(3), key=lambda i: abs(n[i]))
             for loop in f.loops:
