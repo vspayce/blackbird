@@ -269,6 +269,11 @@ body:not([data-mode=explore]) #stick { display: none; }
 .rating table { margin: 6px auto 0; border-collapse: collapse; font-size: 16px; }
 .rating td { padding: 3px 12px; border-bottom: 1px dotted rgba(233,220,184,0.25); text-align: left; }
 .rating td:last-child { text-align: right; font-family: var(--type); color: var(--gold); }
+.title .scenes { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; align-items: center; }
+.title .scenes a {
+  color: var(--paper); text-decoration: none; font-family: var(--caps); font-size: 16px; padding: 9px 18px; min-width: 300px;
+  border: 1px solid rgba(201,160,74,0.5); background: rgba(13,18,24,0.7); border-radius: 3px;
+}
 .title .credit { font-size: 13px; color: var(--paper-dim); opacity: 0.8; margin-top: 18px; }
 .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .screen button { background: rgba(13,18,24,0.6); border: 1px solid var(--paper-dim); padding: 10px 24px; border-radius: 3px; font-family: var(--caps); font-size: 18px; min-height: 46px; min-width: 150px; }

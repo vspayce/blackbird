@@ -11,7 +11,8 @@ function show(html) {
 }
 export function hideScreen() { el().classList.remove('show'); }
 
-export function titleScreen({ hasSave, onNew, onContinue }) {
+// scenes: [[label, query string]] for jumping straight to a scene while testing
+export function titleScreen({ hasSave, onNew, onContinue, scenes = [] }) {
   const s = show(`<div class="title">
       <p class="pre">A Sherlock Holmes Mystery</p>
       <h1>The Black Bird</h1>
@@ -19,11 +20,14 @@ export function titleScreen({ hasSave, onNew, onContinue }) {
       <div class="btns">
         ${hasSave ? '<button class="primary" data-a="continue">Continue</button>' : ''}
         <button class="${hasSave ? '' : 'primary'}" data-a="new">${hasSave ? 'Start over' : 'Begin'}</button>
+        ${scenes.length ? '<button data-a="scenes">Scenes</button>' : ''}
       </div>
+      <div class="scenes hidden">${scenes.map(([label, q]) => `<a href="./${q}">${label}</a>`).join('')}</div>
       <p class="credit">After Dashiell Hammett's <i>The Maltese Falcon</i> (1930) and Arthur Conan Doyle.</p>
     </div>`);
   s.querySelector('[data-a=new]').onclick = onNew;
   s.querySelector('[data-a=continue]')?.addEventListener('click', onContinue);
+  s.querySelector('[data-a=scenes]')?.addEventListener('click', () => s.querySelector('.scenes').classList.toggle('hidden'));
 }
 
 // one line at a time, tap to advance

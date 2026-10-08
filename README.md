@@ -48,3 +48,15 @@ colliders and falls back to plain boxes if the model is missing.
 ```bash
 /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python art/build_set.py
 ```
+
+## The Mark Hopkins Institute (preview)
+
+`art/build_hopkins.py` builds the Hopkins mansion on Nob Hill as it was in 1895,
+the San Francisco Art Association's Institute: exterior, grounds and the whole
+ground floor plus the tower observatory. It writes `public/models/hopkins.glb`
+and `hopkins.json` (colliders, rooms, lamps, interactions). The night city
+below is generated in `src/world/hopkins.js`. The script's header separates
+what is historical from what is invented (notably the floor plan).
+
+Open it from the title screen's **Scenes** button, or with `?scene=hopkins`.
+`?skip=1` starts Chapter I without the intro.

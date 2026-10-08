@@ -5,6 +5,7 @@ import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { fullscreen } from './core/fullscreen.js';
 import { Alley, loadSet } from './world/alley.js';
+import { Hopkins, loadHopkins } from './world/hopkins.js';
 import { createFigure, loadModels } from './game/figure.js';
 import { CaseState } from './game/state.js';
 import { HUD } from './ui/hud.js';
@@ -17,6 +18,12 @@ const HOLMES_LOOK = { model: 'holmes', coat: '#4a4740', trousers: '#2e2c2a', hat
 const WALK = 2.0;           // m/s at full stick: a brisk walk
 const R = 0.3;              // body radius for collisions
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _ray = new THREE.Ray();
+
+// Which scene to play: ?scene=hopkins walks the Mark Hopkins Institute (a preview until its chapter is written);
+// ?skip=1 drops straight into the alley without the intro. The title screen's Scenes button sets these.
+const params = new URLSearchParams(location.search);
+const SCENE = params.get('scene') === 'hopkins' ? 'hopkins' : 'alley';
+const SKIP = params.has('skip');
 
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 
@@ -33,8 +40,16 @@ class Game {
     this.book = new Casebook();
     this.palace = new MindPalace();
     this.state = new CaseState();
-    this.alley = new Alley(this.scene);
-    this.colliders = this.alley.colliders;
+    if (SCENE === 'hopkins') {
+      this.world = new Hopkins(this.scene);
+      this.alley = null;
+    } else {
+      this.world = this.alley = new Alley(this.scene);
+    }
+    this.colliders = this.world.colliders;
+    if (!this.alley) {  // the city below Nob Hill runs out to the far shore of the bay
+      this.camera.near = 0.08; this.camera.far = 6000; this.camera.updateProjectionMatrix();
+    }
 
     this.time = 0;
     this.focusOn = false; this.focus = 0; this.meter = 1;
@@ -71,6 +86,12 @@ class Game {
     this.scene.add(this.holmes.object);
 
     this.people = {};
+    if (!this.alley) {  // the Institute: just Watson at Holmes's side
+      const f = createFigure(PEOPLE.watson.look);
+      blob(f); this.scene.add(f.object);
+      this.people.watson = { id: 'watson', fig: f, def: PEOPLE.watson, speed: 0 };
+      return;
+    }
     for (const [id, p] of Object.entries(PEOPLE)) {
       const f = createFigure(p.look);
       blob(f);
@@ -137,8 +158,17 @@ class Game {
   // --- flow ---------------------------------------------------------------
   title() {
     this.setMode('title');
+    if (SCENE === 'hopkins' || SKIP) {  // arrived from the Scenes menu: straight in
+      this.state.load();
+      return this.boot(false);
+    }
     titleScreen({
       hasSave: CaseState.hasSave(),
+      scenes: [
+        ['Chapter I from the start', '?'],
+        ['Burritt Alley, skip the intro', '?skip=1'],
+        ['The Mark Hopkins Institute (preview)', '?scene=hopkins'],
+      ],
       onNew: () => { this.state.reset(); this.state.save(); this.boot(true); },
       onContinue: () => { this.state.load(); this.boot(false); },
     });
@@ -152,6 +182,16 @@ class Game {
   }
 
   begin() {
+    if (!this.alley) {
+      const s = this.world.data.spawn;
+      this.holmes.object.position.fromArray(s.pos);
+      this.holmes.object.rotation.y = s.yaw;
+      this.people.watson.fig.object.position.set(s.pos[0] + 1.0, 0, s.pos[2] + 1.0);
+      this.yaw = s.yaw - Math.PI; this.pitch = 0.22;
+      this.setMode('explore');
+      setTimeout(() => this.hud.say('The Hopkins house. Four years an art school, and still the grandest folly on the hill.'), 600);
+      return;
+    }
     this.holmes.object.position.set(CHAPTER.start.x, 0, CHAPTER.start.z);
     this.holmes.object.rotation.y = Math.PI;
     this.people.watson.fig.object.position.set(CHAPTER.start.x - 0.9, 0, CHAPTER.start.z + 1.2);
@@ -179,6 +219,14 @@ class Game {
   // nearest thing worth doing from where Holmes stands
   candidate() {
     const p = this.holmes.object.position;
+    if (!this.alley) {
+      let best = null, bd = Infinity;
+      for (const s of this.world.interact) {
+        const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
+        if (Math.abs(s.pos[1] - p.y) < 3 && d < s.r && d < bd) { best = { inter: s }; bd = d; }
+      }
+      return best;
+    }
     let best = null, bestScore = Infinity;
     for (const s of SPOTS) {
       const found = s.clue && this.state.has(s.clue);
@@ -187,6 +235,7 @@ class Game {
       if (d < s.r && d / s.r < bestScore) { best = { spot: s }; bestScore = d / s.r; }
     }
     for (const id of ['polhaus', 'kelly']) {
+      if (!this.people[id]) continue;
       const o = this.people[id].fig.object.position;
       const d = Math.hypot(o.x - p.x, o.z - p.z);
       if (d < 2 && d / 2 < bestScore) { best = { person: id }; bestScore = d / 2; }
@@ -200,11 +249,32 @@ class Game {
 
   interact(target = this.candidate()) {
     if (!target || this.mode !== 'explore') return;
+    if (target.inter) return this.useHopkins(target.inter);
     if (target.person) return this.talk(target.person);
     const s = target.spot;
     if (s.closeup) return this.enterCloseup();
     if (s.clue) return this.gain(s.clue);
     if (s.say) this.hud.say(s.say);
+  }
+
+  // the Institute preview: the tower stair moves Holmes up and down; the rest are remarks for now
+  useHopkins(s) {
+    const d = this.world.data.tower;
+    const lines = {
+      archive: 'The Art Association\'s minute books, catalogues of every exhibition since \'71. If anyone in this city has written about a jewelled bird, it will be in here.',
+      curator: 'The curator keeps a tidy desk and an untidy correspondence: dealers in Paris, Vienna, Constantinople.',
+      view: 'The whole city, Watson, laid out in gaslight. Somewhere down there a woman in blue gloves is lying to someone.',
+      telescope: 'Hopkins built this for the view. I find it serves equally well for watching the doors of the Palace Hotel.',
+    };
+    if (s.to) {
+      const to = s.to === 'tower_room' ? d.top : d.foot;
+      this.holmes.object.position.fromArray(to);
+      this.people.watson.fig.object.position.set(to[0] + 0.8, to[1], to[2] + 0.6);
+      this.camDistNow = 1.5;
+      this.hud.say(s.to === 'tower_room' ? 'A hundred and twenty steps. Hopkins never climbed them; he died before the house was finished.' : 'Down again.');
+      return;
+    }
+    this.hud.say(lines[s.id] ?? s.label);
   }
 
   talk(id) {
@@ -281,7 +351,7 @@ class Game {
   // --- simulation -----------------------------------------------------------
   collide(pos) {
     for (const b of this.colliders) {
-      if (b.max.y < 0.2) continue;
+      if (b.max.y < pos.y + 0.2 || b.min.y > pos.y + 1.8) continue;  // only what stands on this floor
       const cx = Math.max(b.min.x, Math.min(pos.x, b.max.x));
       const cz = Math.max(b.min.z, Math.min(pos.z, b.max.z));
       const dx = pos.x - cx, dz = pos.z - cz, d = Math.hypot(dx, dz);
@@ -294,6 +364,7 @@ class Game {
       }
     }
     for (const id of ['polhaus', 'kelly']) {
+      if (!this.people[id]) continue;
       const o = this.people[id].fig.object.position;
       const dx = pos.x - o.x, dz = pos.z - o.z, d = Math.hypot(dx, dz);
       if (d > 0 && d < 0.6) { pos.x = o.x + dx / d * 0.6; pos.z = o.z + dz / d * 0.6; }
@@ -373,7 +444,7 @@ class Game {
       cam.lookAt(this.camLook);
       return;
     }
-    const target = _w.set(h.x, 1.55, h.z);
+    const target = _w.set(h.x, h.y + 1.55, h.z);
     const cp = Math.cos(this.pitch);
     const dir = _v.set(Math.sin(this.yaw) * cp, Math.sin(this.pitch), Math.cos(this.yaw) * cp);
     let dist = this.camDist;
@@ -382,7 +453,7 @@ class Game {
     for (const b of this.colliders) {
       if (_ray.intersectBox(b, hit)) dist = Math.min(dist, Math.max(0.6, hit.distanceTo(target) - 0.25));
     }
-    if (target.y + dir.y * dist < 0.25) dist = (0.25 - target.y) / dir.y;
+    if (target.y + dir.y * dist < h.y + 0.25) dist = (h.y + 0.25 - target.y) / dir.y;
     this.camDistNow = damp(this.camDistNow ?? dist, dist, dist < (this.camDistNow ?? dist) ? 30 : 4, dt);
     cam.position.copy(target).addScaledVector(dir, this.camDistNow);
     this.camLook = target.clone();
@@ -400,7 +471,16 @@ class Game {
     hud.begin();
     const p = this.holmes.object.position;
     const f = this.focus;
-    if (this.mode === 'explore') {
+    if (this.mode === 'explore' && !this.alley) {
+      for (const s of this.world.interact) {
+        if (Math.abs(s.pos[1] - p.y) > 3 || Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z) > 7) continue;
+        const sc = this.project(...s.pos);
+        if (sc) hud.label('in:' + s.id, sc[0], sc[1], s.label, 'mark', () => {
+          if (Math.hypot(s.pos[0] - this.holmes.object.position.x, s.pos[2] - this.holmes.object.position.z) < s.r * 1.3) this.useHopkins(s);
+          else this.hud.say('Closer.');
+        });
+      }
+    } else if (this.mode === 'explore') {
       for (const s of SPOTS) {
         const found = s.clue && this.state.has(s.clue);
         const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
@@ -460,15 +540,15 @@ class Game {
     if (this.mode === 'explore') this.updateHolmes(dt);
     this.holmes.animate(dt, this.mode === 'explore' ? this.holmesSpeed ?? 0 : 0, this.time);
     this.updateWatson(wdt, this.time);
-    for (const id of ['polhaus', 'kelly']) this.people[id].fig.animate(wdt, 0, this.time);
-    this.alley.update(wdt, this.time, this.focus, this.camera);
-    this.pocketLamp.intensity = damp(this.pocketLamp.intensity, this.mode === 'closeup' ? 3.5 : 0, 4, dt);
+    for (const id of ['polhaus', 'kelly']) this.people[id]?.fig.animate(wdt, 0, this.time);
+    this.world.update(wdt, this.time, this.focus, this.camera, this.holmes.object.position);
+    if (this.pocketLamp) this.pocketLamp.intensity = damp(this.pocketLamp.intensity, this.mode === 'closeup' ? 3.5 : 0, 4, dt);
     this.updateCamera(dt);
 
     if (this.mode === 'explore') {
       const c = this.candidate();
-      this.hud.setAct(c ? (c.person ? 'Talk to ' + PEOPLE[c.person].name : c.spot.label) : null);
-      this.hud.setObjective(this.state.objective());
+      this.hud.setAct(c ? (c.inter ? c.inter.label : c.person ? 'Talk to ' + PEOPLE[c.person].name : c.spot.label) : null);
+      this.hud.setObjective(this.alley ? this.state.objective() : this.world.roomAt(this.holmes.object.position));
     }
     this.hud.setFocus(this.focusOn, this.meter);
     this.updateLabels();
@@ -478,4 +558,7 @@ class Game {
   }
 }
 
-Promise.all([loadModels(['holmes', 'watson', 'polhaus', 'kelly', 'archer']), loadSet()]).then(() => { window.game = new Game(); });
+const assets = SCENE === 'hopkins'
+  ? [loadModels(['holmes', 'watson']), loadHopkins()]
+  : [loadModels(['holmes', 'watson', 'polhaus', 'kelly', 'archer']), loadSet()];
+Promise.all(assets).then(() => { window.game = new Game(); });
