@@ -3,9 +3,20 @@
 // at z = -22, beyond which the hill drops away to Stockton Street.
 import * as THREE from 'three';
 import * as T from './textures.js';
+import { gltfLoader } from '../core/gltf.js';
 
 const ALLEY_HALF = 2.5;
 export const FENCE_Z = -22;
+
+// The modelled set (art/build_set.py): buildings, lamps, wires and clutter.
+// Without it the alley falls back to the boxes below, which always provide
+// the colliders.
+let set = null;
+export function loadSet() {
+  return gltfLoader.loadAsync('models/burritt.glb')
+    .then(g => { set = g.scene; })
+    .catch(e => console.warn('set not loaded, using blockout', e));
+}
 
 export class Alley {
   constructor(scene) {
@@ -15,6 +26,8 @@ export class Alley {
     this.colliders = [];   // THREE.Box3, used for walking and the camera
     this.hidden = [];      // { material, base } faded in by Focus
     this.fog = [];
+    this.blockout = new THREE.Group();  // stand-in boxes the modelled set replaces
+    this.group.add(this.blockout);
 
     scene.background = new THREE.Color('#0d1218');
     scene.fog = new THREE.FogExp2('#18202a', 0.052);
@@ -26,12 +39,26 @@ export class Alley {
     this.buildLights();
     this.buildFog();
     this.buildHiddenDetails();
+    if (set) this.useSet();
   }
 
-  box(w, h, d, material, x, y, z, collide = true) {
+  useSet() {
+    this.blockout.visible = false;
+    this.group.add(set);
+    const halo = new THREE.SpriteMaterial({ map: T.glow('rgba(255,200,130,0.9)'), blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    set.traverse(o => {
+      // lamps the scene doesn't light still glow through the fog
+      if (/^Lamp_/.test(o.name) && !this.litLamps.some(p => p.distanceTo(o.getWorldPosition(new THREE.Vector3())) < 0.6)) {
+        const s = new THREE.Sprite(halo); s.scale.setScalar(1.8);
+        o.add(s);
+      }
+    });
+  }
+
+  box(w, h, d, material, x, y, z, collide = true, into = this.blockout) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
     m.position.set(x, y, z);
-    this.group.add(m);
+    into.add(m);
     if (collide) this.colliders.push(new THREE.Box3().setFromObject(m));
     return m;
   }
@@ -56,9 +83,9 @@ export class Alley {
     }
     // kerbs
     const stone = new THREE.MeshStandardMaterial({ color: '#5d5a54', roughness: 0.8 });
-    this.box(23.5, 0.15, 1.6, stone, -14.25, 0.075, 8.8, false);
-    this.box(23.5, 0.15, 1.6, stone, 14.25, 0.075, 8.8, false);
-    this.box(60, 0.15, 1.6, stone, 0, 0.075, 21.2, false);
+    this.box(23.5, 0.15, 1.6, stone, -14.25, 0.075, 8.8, false, this.group);
+    this.box(23.5, 0.15, 1.6, stone, 14.25, 0.075, 8.8, false, this.group);
+    this.box(60, 0.15, 1.6, stone, 0, 0.075, 21.2, false, this.group);
 
     // the drop beyond the fence: a weedy ledge, then the lights of Stockton Street far below
     const ledge = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.2), new THREE.MeshStandardMaterial({ color: '#2a2b1f', roughness: 1 }));
@@ -97,7 +124,7 @@ export class Alley {
     const add = (x, y, z, ry) => {
       const w = new THREE.Mesh(win, Math.random() < 0.22 ? lit : dark);
       w.position.set(x, y, z); w.rotation.y = ry;
-      this.group.add(w);
+      this.blockout.add(w);
     };
     for (let x = -27; x <= 27; x += 2.4) for (const y of [3, 6, 9]) {
       const h = [9, 13, 10, 12, 8][Math.min(4, Math.floor((x + 30) / 12))];
@@ -118,13 +145,13 @@ export class Alley {
     for (const [x, z] of [[2.0, -6.2], [1.95, -7.1], [-2.0, -13.0]]) {
       const b = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.95, 12), tin);
       b.position.set(x, 0.475, z);
-      this.group.add(b);
+      this.blockout.add(b);
       this.colliders.push(new THREE.Box3().setFromObject(b));
     }
     // drainpipes and a back door on each wall
     for (const [x, z] of [[-2.45, 2], [2.45, -9]]) {
       const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 9, 6), tin);
-      p.position.set(x, 4.5, z); this.group.add(p);
+      p.position.set(x, 4.5, z); this.blockout.add(p);
     }
     const door = new THREE.MeshStandardMaterial({ color: '#2b1c12', roughness: 0.8 });
     this.box(0.08, 2.2, 1.1, door, -2.47, 1.1, -10, false);
@@ -142,10 +169,10 @@ export class Alley {
     // boards with a gap where Archer went back against it
     for (let x = -2.4; x < 2.45; x += 0.2) {
       if (x > 0.35 && x < 1.15) continue;
-      this.box(0.18, 1.9, 0.04, wood, x, 0.95, z, false);
+      this.box(0.18, 1.9, 0.04, wood, x, 0.95, z, false, this.group);
     }
-    this.box(5, 0.1, 0.08, wood, 0, 1.6, z - 0.05, false);
-    this.box(5, 0.1, 0.08, wood, 0, 0.4, z - 0.05, false);
+    this.box(5, 0.1, 0.08, wood, 0, 1.6, z - 0.05, false, this.group);
+    this.box(5, 0.1, 0.08, wood, 0, 0.4, z - 0.05, false, this.group);
     // snapped boards lying outward on the ledge
     for (const [x, rz, ry] of [[0.5, 0.2, 0.3], [0.9, -0.15, -0.4], [0.7, 0.05, 0.1]]) {
       const b = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.2, 0.04), wood);
@@ -166,24 +193,26 @@ export class Alley {
     const halo = new THREE.SpriteMaterial({ map: T.glow('rgba(255,200,130,0.9)'), blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     const iron = new THREE.MeshStandardMaterial({ color: '#1b1c1e', roughness: 0.5, metalness: 0.7 });
     const glass = new THREE.MeshBasicMaterial({ color: '#ffd9a0' });
+    this.litLamps = [];
     const lamp = (x, y, z, intensity, dist) => {
       const l = new THREE.PointLight('#ffb468', intensity, dist, 1.6);
       l.position.set(x, y, z);
       this.scene.add(l);
+      this.litLamps.push(l.position);
       const s = new THREE.Sprite(halo); s.scale.setScalar(2.2); s.position.copy(l.position);
       this.group.add(s);
       const g = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.32, 0.22), glass);
-      g.position.copy(l.position); this.group.add(g);
+      g.position.copy(l.position); this.blockout.add(g);
       return l;
     };
     // street lamp on Bush Street, by the alley mouth
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 3.6, 8), iron);
-    post.position.set(-3.6, 1.8, 9.6); this.group.add(post);
+    post.position.set(-3.6, 1.8, 9.6); this.blockout.add(post);
     this.colliders.push(new THREE.Box3().setFromObject(post));
-    this.streetLamp = lamp(-3.6, 3.75, 9.6, 26, 18);
+    this.streetLamp = lamp(-3.6, 3.4, 9.6, 26, 18);
     // bracket lamp on the alley wall
     this.box(0.7, 0.05, 0.05, iron, -2.15, 3.2, -8, false);
-    this.alleyLamp = lamp(-1.85, 3.0, -8, 12, 11);
+    this.alleyLamp = lamp(-1.85, 3.03, -8, 12, 11);
     // the police lantern by the body, set on the cobbles
     this.lantern = new THREE.PointLight('#ffc27a', 7, 7, 1.8);
     this.lantern.position.set(-0.9, 0.5, -17.8);

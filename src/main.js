@@ -4,7 +4,7 @@ import { Renderer } from './core/renderer.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { fullscreen } from './core/fullscreen.js';
-import { Alley } from './world/alley.js';
+import { Alley, loadSet } from './world/alley.js';
 import { createFigure, loadModels } from './game/figure.js';
 import { CaseState } from './game/state.js';
 import { HUD } from './ui/hud.js';
@@ -478,4 +478,4 @@ class Game {
   }
 }
 
-loadModels(['holmes', 'watson', 'polhaus', 'kelly', 'archer']).then(() => { window.game = new Game(); });
+Promise.all([loadModels(['holmes', 'watson', 'polhaus', 'kelly', 'archer']), loadSet()]).then(() => { window.game = new Game(); });

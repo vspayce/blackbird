@@ -37,3 +37,14 @@ packs; setup is described at the top of the script. See `CREDITS.md`.
 BLENDER_USER_CONFIG=art/.blender-config /Applications/Blender.app/Contents/MacOS/Blender -b \
   --python art/build_humans.py -- --only holmes
 ```
+
+## The set
+
+Burritt Alley and Bush Street are built by `art/build_set.py` (no add-ons
+needed), which saves `art/set/burritt.blend` and exports
+`public/models/burritt.glb`. `src/world/alley.js` keeps the layout and
+colliders and falls back to plain boxes if the model is missing.
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python art/build_set.py
+```

@@ -4,8 +4,7 @@
 // - primitives built here, with the same pivots, if no model loads.
 // All of them answer animate(dt, speed, t), setTalking(on) and lieBack().
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { gltfLoader } from '../core/gltf.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const models = new Map();
@@ -13,9 +12,7 @@ const WALK_CLIP_SPEED = 1.45;  // m/s covered by one play of the Walk clip at ti
 
 // Load models before building figures; a missing model falls back to primitives.
 export function loadModels(names) {
-  const draco = new DRACOLoader().setDecoderPath('draco/');
-  const loader = new GLTFLoader().setDRACOLoader(draco);
-  return Promise.all(names.map(n => loader.loadAsync(`models/${n}.glb`)
+  return Promise.all(names.map(n => gltfLoader.loadAsync(`models/${n}.glb`)
     .then(g => models.set(n, g))
     .catch(e => console.warn(`model ${n} not loaded, using primitives`, e))));
 }
