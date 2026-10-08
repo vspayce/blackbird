@@ -45,14 +45,6 @@ export class Alley {
   useSet() {
     this.blockout.visible = false;
     this.group.add(set);
-    const halo = new THREE.SpriteMaterial({ map: T.glow('rgba(255,200,130,0.9)'), blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-    set.traverse(o => {
-      // lamps the scene doesn't light still glow through the fog
-      if (/^Lamp_/.test(o.name) && !this.litLamps.some(p => p.distanceTo(o.getWorldPosition(new THREE.Vector3())) < 0.6)) {
-        const s = new THREE.Sprite(halo); s.scale.setScalar(1.8);
-        o.add(s);
-      }
-    });
   }
 
   box(w, h, d, material, x, y, z, collide = true, into = this.blockout) {
@@ -190,17 +182,13 @@ export class Alley {
     moon.position.set(-6, 14, 8);
     this.scene.add(moon);
 
-    const halo = new THREE.SpriteMaterial({ map: T.glow('rgba(255,200,130,0.9)'), blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     const iron = new THREE.MeshStandardMaterial({ color: '#1b1c1e', roughness: 0.5, metalness: 0.7 });
-    const glass = new THREE.MeshBasicMaterial({ color: '#ffd9a0' });
-    this.litLamps = [];
+    // brighter than white, so the bloom pass gives the flame its glow
+    const glass = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 2.2, 1.2) });
     const lamp = (x, y, z, intensity, dist) => {
       const l = new THREE.PointLight('#ffb468', intensity, dist, 1.6);
       l.position.set(x, y, z);
       this.scene.add(l);
-      this.litLamps.push(l.position);
-      const s = new THREE.Sprite(halo); s.scale.setScalar(2.2); s.position.copy(l.position);
-      this.group.add(s);
       const g = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.32, 0.22), glass);
       g.position.copy(l.position); this.blockout.add(g);
       return l;
@@ -219,8 +207,6 @@ export class Alley {
     this.scene.add(this.lantern);
     const lan = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.28, 8), glass);
     lan.position.set(-0.9, 0.14, -17.8); this.group.add(lan);
-    const ls = new THREE.Sprite(halo); ls.scale.setScalar(1.2); ls.position.set(-0.9, 0.2, -17.8);
-    this.group.add(ls);
   }
 
   buildFog() {

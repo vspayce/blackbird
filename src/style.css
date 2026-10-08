@@ -71,8 +71,10 @@ body[data-mode=talk] #top-btns, body[data-mode=talk] #btn-focus, body[data-mode=
 }
 #btn-back { position: absolute; left: calc(14px + var(--sl)); bottom: calc(18px + var(--sb)); }
 
-#stick { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; transition: opacity .15s; }
+#stick { position: absolute; left: calc(88px + var(--sl)); bottom: calc(88px + var(--sb)); width: 0; height: 0; opacity: 0.5; transition: opacity .15s; display: none; }
 #stick.on { opacity: 1; }
+@media (pointer: coarse) { #stick { display: block; } }
+body:not([data-mode=explore]) #stick { display: none; }
 #stick::before { content: ''; position: absolute; left: -56px; top: -56px; width: 112px; height: 112px; border-radius: 50%; border: 2px solid rgba(233,220,184,0.35); background: rgba(13,18,24,0.25); }
 #stick i { position: absolute; left: -24px; top: -24px; width: 48px; height: 48px; border-radius: 50%; background: rgba(233,220,184,0.55); }
 

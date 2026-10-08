@@ -1,10 +1,12 @@
-// Renderer + one grade pass. Scene renders HDR into a multisampled target;
-// the final pass does ACES, sRGB, a cold night grade, vignette, grain and the
-// Focus look (bleached, blue, only the brightest things keep their colour).
+// Renderer: the scene renders HDR into a multisampled target, a bloom pass
+// lets only the truly bright things (gas flames, lit windows) glow into the
+// fog, then one grade pass does ACES, sRGB, a cold night grade, vignette,
+// grain and the Focus look (bleached, blue, only the brightest keep colour).
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 const Grade = {
   uniforms: {
@@ -59,6 +61,9 @@ export class Renderer {
     const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
     this.composer = new EffectComposer(this.r, rt);
     this.composer.addPass(new RenderPass(scene, camera));
+    // threshold above 1: lamplit walls never bloom, only light sources do
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.6, 1.1);
+    this.composer.addPass(this.bloom);
     this.grade = new ShaderPass(Grade);
     this.composer.addPass(this.grade);
     this.resize();

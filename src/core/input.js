@@ -1,5 +1,5 @@
-// Touch: a floating stick on the left 40% of the screen, drag anywhere else to
-// look. Desktop: WASD / arrows to walk, drag with the mouse to look.
+// Touch: a fixed stick in the bottom-left corner, drag anywhere else to look.
+// Desktop: WASD / arrows to walk, drag with the mouse to look.
 export class Input {
   constructor(el) {
     this.el = el;
@@ -22,11 +22,12 @@ export class Input {
 
   down(e) {
     if (!this.enabled) return;
-    if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.4 && this.stick.id === null) {
-      Object.assign(this.stick, { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: 0, y: 0 });
-      this.stickEl.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+    const c = this.stickEl.getBoundingClientRect();  // zero-size element sitting at the stick's centre
+    const near = this.stickEl.offsetParent !== null && Math.hypot(e.clientX - c.left, e.clientY - c.top) < 95;
+    if (e.pointerType === 'touch' && near && this.stick.id === null) {
+      Object.assign(this.stick, { id: e.pointerId, ox: c.left, oy: c.top, x: 0, y: 0 });
       this.stickEl.classList.add('on');
-      this.knobEl.style.transform = '';
+      this.move(e);
     } else if (this.lookId === null) {
       this.lookId = e.pointerId; this.lx = e.clientX; this.ly = e.clientY;
     }
@@ -54,6 +55,7 @@ export class Input {
   releaseStick() {
     this.stick.id = null; this.stick.x = this.stick.y = 0;
     this.stickEl.classList.remove('on');
+    this.knobEl.style.transform = '';
   }
 
   release() { this.releaseStick(); this.lookId = null; this.dx = this.dy = 0; }
