@@ -266,9 +266,17 @@ class Game {
       curator: 'The curator keeps a tidy desk and an untidy correspondence: dealers in Paris, Vienna, Constantinople.',
       view: 'The whole city, Watson, laid out in gaslight. Somewhere down there a woman in blue gloves is lying to someone.',
       telescope: 'Hopkins built this for the view. I find it serves equally well for watching the doors of the Palace Hotel.',
+      prints: 'Engravings for the students to copy. Valletta, the harbour, the Grand Master\'s palace. Someone has been looking at Malta.',
+      studio: 'Still warm. The model left in a hurry, and in a lady\'s glove, by the look of that mark on the velvet.',
+      bedroom: 'Mrs. Hopkins never slept here. She built it, furnished it, and went back East. The Association shows it to visitors on Sundays.',
+      casts: 'Plaster gods, Watson. The students draw them for a year before they are allowed a living model.',
+      fountain: 'Granite, and dry since the Association took the house. Water costs money on Nob Hill.',
+      flood: 'Bronze, the whole length of the block. Flood made his money in silver and wanted everyone to know it.',
     };
     if (s.to) {
-      const to = s.to === 'tower_room' ? d.top : d.foot;
+      if (s.to === 'tower_room') this.towerFrom = s.id;  // come back down to the floor you climbed from
+      const foot = this.towerFrom === 'tower2' ? [d.foot[0], 6, d.foot[2]] : d.foot;
+      const to = s.to === 'tower_room' ? d.top : foot;
       this.holmes.object.position.fromArray(to);
       this.people.watson.fig.object.position.set(to[0] + 0.8, to[1], to[2] + 0.6);
       this.camDistNow = 1.5;
@@ -415,6 +423,10 @@ class Game {
     // at Holmes's left shoulder, half a pace back, out of the camera's way
     const tx = h.position.x + Math.sin(ry) * -0.4 + Math.cos(ry) * 1.0;
     const tz = h.position.z + Math.cos(ry) * -0.4 - Math.sin(ry) * 1.0;
+    // left behind on another floor (he doesn't take stairs on his own): catch up out of sight
+    if (Math.abs(o.position.y - h.position.y) > 1.5 && Math.hypot(o.position.x - h.position.x, o.position.z - h.position.z) > 2.5) {
+      o.position.set(tx, h.position.y, tz);
+    }
     const dx = tx - o.position.x, dz = tz - o.position.z, d = Math.hypot(dx, dz);
     let sp = 0;
     if (this.mode === 'explore' && d > 0.45) {

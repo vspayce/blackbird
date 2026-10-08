@@ -24,7 +24,12 @@ export class Hopkins {
     this.colliders = data.colliders.map(c => new THREE.Box3(new THREE.Vector3(c[0], c[1], c[2]), new THREE.Vector3(c[3], c[4], c[5])));
     this.rooms = data.rooms;
     this.interact = data.interact;
-    this.lamps = data.lamps.map(p => new THREE.Vector3(...p));
+    this.lamps = data.lamps.map(p => {
+      const v = new THREE.Vector3(...p);
+      // which floor a lamp belongs to; the hall's great gasoliers light both the floor and the gallery
+      v.level = v.y > 15 ? 2 : (this.inHall(v) && v.y > 6) ? 'hall' : v.y > 6 ? 1 : 0;
+      return v;
+    });
 
     scene.background = new THREE.Color('#0a1018');
     scene.fog = new THREE.FogExp2('#101823', 0.0035);
@@ -52,21 +57,45 @@ export class Hopkins {
     this.buildCity();
   }
 
-  // Floor height under (x, z): the terrace is 0, California Street below the wall, ramps and steps between.
-  // Up in the tower the floor is wherever Holmes already is.
+  inHall(p) {
+    const [x0, x1, z0, z1] = this.data.hall;
+    return p.x > x0 && p.x < x1 && p.z > z0 && p.z < z1;
+  }
+
+  levelOf(y) { return y > 15 ? 2 : y > 4 ? 1 : 0; }
+
+  // The floor under (x, z) for someone now at height y: of every surface there (the terrace or street, ramps,
+  // stair runs, the gallery and the upper floor), the highest one they can step onto. Up in the tower the floor
+  // is wherever Holmes already is.
   groundAt(x, z, y) {
-    if (y > 10) return y;
+    if (y > 15) return y;
     const g = this.data.ground;
+    let base = z > g.wall ? g.street : 0;
     for (const [x0, x1, z0, z1, y0, y1] of g.ramps) {
-      if (x >= x0 && x <= x1 && z >= z0 && z <= z1) return y0 + (y1 - y0) * (z - z0) / (z1 - z0);
+      if (x >= x0 && x <= x1 && z >= z0 && z <= z1) base = y0 + (y1 - y0) * (z - z0) / (z1 - z0);
     }
-    return z > g.wall ? g.street : 0;
+    let best = base;
+    const take = c => { if (c <= y + 0.6 && c > best) best = c; };
+    for (const [x0, x1, z0, z1, axis, a, b] of g.stairs) {
+      if (x < x0 || x > x1 || z < z0 || z > z1) continue;
+      const t = axis === 'x' ? (x - x0) / (x1 - x0) : (z - z0) / (z1 - z0);
+      take(a + (b - a) * t);
+    }
+    for (const L of g.levels) {
+      if (L.rects.some(([x0, x1, z0, z1]) => x >= x0 && x <= x1 && z >= z0 && z <= z1)) take(L.y);
+    }
+    return best;
   }
 
   roomAt(p) {
-    if (p.y > 10) return 'The Tower Observatory';
+    if (p.y > 15) return 'The Tower Observatory';
     if (p.z > this.data.ground.wall) return 'California Street';
-    const r = this.rooms.find(r => p.x > r.x0 && p.x < r.x1 && p.z > r.z0 && p.z < r.z1);
+    if (p.y > 4) {
+      if (this.inHall(p)) return 'The Gallery';
+      const r = this.rooms.find(r => r.y > 4 && p.x > r.x0 && p.x < r.x1 && p.z > r.z0 && p.z < r.z1);
+      return r ? r.name : 'The Grand Stair';
+    }
+    const r = this.rooms.find(r => !(r.y > 4) && p.x > r.x0 && p.x < r.x1 && p.z > r.z0 && p.z < r.z1);
     return r ? r.name : 'The Grounds';
   }
 
@@ -163,16 +192,20 @@ export class Hopkins {
   update(dt, t, focus, camera, holmes) {
     // give the gas lights to the lamps nearest Holmes (and on his floor)
     const p = holmes;
+    // only lamps on Holmes's own floor (and the hall's, from the hall or its gallery): no light through ceilings
+    const lvl = this.levelOf(p.y), hall = this.inHall(p);
     const near = this.lamps
-      .map(l => [l, l.distanceToSquared(p) + (Math.abs(l.y - p.y) > 12 ? 1e4 : 0)])
+      .filter(l => l.level === lvl || (l.level === 'hall' && hall && lvl < 2))
+      .map(l => [l, l.distanceToSquared(p)])
       .sort((a, b) => a[1] - b[1]);
     this.gas.forEach((g, i) => {
       const n = near[i];
       if (!n) { g.intensity = 0; return; }
       g.position.copy(n[0]);
       const flick = 1 + Math.sin(t * 9 + i * 1.7) * 0.03;
-      g.intensity = (n[0].y > 8 ? 30 : 16) * flick;
-      g.distance = n[0].y > 8 ? 22 : 13;
+      const big = n[0].level === 'hall' || n[0].level === 2;
+      g.intensity = (big ? 30 : 16) * flick;
+      g.distance = big ? 22 : 13;
     });
   }
 }

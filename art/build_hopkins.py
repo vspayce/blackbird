@@ -32,6 +32,14 @@ ROOMS = []          # {id, name, x0, z0, x1, z1, y}
 INTERACT = []       # {id, label, pos, r, ...}
 
 H = 5.5             # ground floor ceiling
+D = 1.8             # door width
+DH = 3.4            # door height
+UF = 6.0            # the upper floor (level with the hall's gallery)
+UC = 11.0           # its ceiling
+UPPER_DOORS = []    # (x, z, axis) doorways on the upper floor, axis 'x' for walls running along x
+UPPER_WINDOWS = []  # (x, z, axis) window openings in the upper storey's outer walls
+STAIRS = []         # walkable stair runs: [x0, x1, z0, z1, axis, y at the low end, y at the high end]
+LEVELS = []         # walkable floors above the ground: {y, rects: [[x0, x1, z0, z1]]}
 HALL_H = 14.0       # the hall rises through the house
 T = 0.35            # wall thickness
 
@@ -452,9 +460,9 @@ def turret(x, z, r, y0, y1, spire):
         lbox(F, 'trim_cream', -0.25, 0.25, 1.1, 1.25, 0, 0.08)
 
 
-def lancet(F, u, v, w, h, lit=False):
+def lancet(F, u, v, w, h, lit=False, glass=None):
     """A pointed-arch window on an exterior face: glass, stone surround, a drip mould and a pointed head."""
-    g = 'glass_lit1' if lit else 'glass_dark'
+    g = glass or ('glass_lit1' if lit else 'glass_dark')
     lbox(F, g, u - w / 2, u + w / 2, v, v + h, 0.0, 0.03)
     lbox(F, 'trim_cream', u - w / 2 - 0.12, u - w / 2, v, v + h, 0, 0.12)
     lbox(F, 'trim_cream', u + w / 2, u + w / 2 + 0.12, v, v + h, 0, 0.12)
@@ -503,8 +511,6 @@ def rooms():
 
 def build_house():
     R = rooms()
-    D = 1.8  # door width
-    DH = 3.4
 
     # floors
     for r in R.values():
@@ -528,19 +534,27 @@ def build_house():
     walls['back_e'] = outer((15, -14), (7, -14), [2, 6])
 
     # --- inner walls with doors ---
-    def inner(a, b, doors, mat='plaster', top=H):
+    def inner(a, b, doors, mat='plaster', top=H, upper=()):
+        """Doors at the ground floor (doors) and at the gallery / upper floor (upper)."""
         ops = [(t, D, 0, DH) for t in doors]
-        F, L = wall(a, b, 0, top, ops, mat=mat)
+        F, L = wall(a, b, 0, top, ops + [(t, D, UF, UF + DH) for t in upper], mat=mat)
         for t in doors:
             door_leaves(F, t, D, DH, 1)
+        for t in upper:
+            door_leaves(F @ Matrix.Translation((0, UF, 0)), t, D, DH, 1)
+            p = F @ Vector((t, 0, 0))
+            UPPER_DOORS.append((p.x, p.z))
         return F, L, ops
     walls['vest_w'] = inner((-3, 10), (-3, 14), [])
     walls['vest_e'] = inner((3, 14), (3, 10), [])
     walls['vest_hall'] = inner((-3, 10), (3, 10), [3])
+    Fv, _ = wall((-3, 10), (3, 10), H, HALL_H, [(3, D, UF, UF + DH)], mat='plaster')  # over the vestibule, to the sitting room
+    door_leaves(Fv @ Matrix.Translation((0, UF, 0)), 3, D, DH, 1)
+    UPPER_DOORS.append((0, 10))
     walls['hall_front_w'] = inner((-7, 10), (-3, 10), [], top=HALL_H)
     walls['hall_front_e'] = inner((3, 10), (7, 10), [], top=HALL_H)
-    walls['hall_w'] = inner((-7, -6), (-7, 10), [12, 4], top=HALL_H)     # to library, Moorish room
-    walls['hall_e'] = inner((7, 10), (7, -6), [4, 12], top=HALL_H)       # to music room, life class
+    walls['hall_w'] = inner((-7, -6), (-7, 10), [12, 4], top=HALL_H, upper=[2, 14])  # library, Moorish room; upstairs
+    walls['hall_e'] = inner((7, 10), (7, -6), [4, 12], top=HALL_H, upper=[2, 14])    # music room, life class; upstairs
     walls['hall_back'] = inner((7, -6), (-7, -6), [7], top=HALL_H)       # to the solarium
     walls['lib_moor'] = inner((-15, 2), (-7, 2), [4])
     walls['moor_rec'] = inner((-15, -6), (-7, -6), [4])
@@ -609,7 +623,7 @@ def build_hall(R):
     for z in (5.5, 1.5, -2.5):
         column(x0 + 2, z, 0, gy - 0.4); column(x1 - 2, z, 0, gy - 0.4)
     # balustrade along the gallery edge
-    edge = [((x0 + 2, z1 - 2), (x1 - 2, z1 - 2)), ((x0 + 2, z0), (x0 + 2, z1 - 2)), ((x1 - 2, z1 - 2), (x1 - 2, z0))]
+    edge = [((x0 + 2, z1 - 2), (x1 - 2, z1 - 2)), ((x0 + 2, z0 + 1.6), (x0 + 2, z1 - 2)), ((x1 - 2, z1 - 2), (x1 - 2, z0 + 1.6))]
     for a, b in edge:
         A, B = Vector((a[0], gy, a[1])), Vector((b[0], gy, b[1]))
         tube('oak_panel', [A + Vector((0, 1.0, 0)), B + Vector((0, 1.0, 0))], 0.05, 6)
@@ -633,7 +647,22 @@ def build_hall(R):
         cyl('walnut_panel', (s * 2.3, 0, -0.8), 1.3, 0.1, 0.08, seg=8)
         sphere('brass', (s * 2.3, 1.38, -0.8), 0.09, 8)
         tube('walnut_panel', [(s * 2.3, 1.2, -0.8), (s * 2.3, gy / 2 + 1.0, -6.1)], 0.045)
-    collide(-2.4, 0, -6.4, 2.4, gy, -0.9)
+    # walkable: the main flight, the landing, the two side flights (the game follows these heights)
+    STAIRS.append([-2.2, 2.2, -5.4, -0.9, 'z', gy / 2, 0.0])
+    STAIRS.append([-3.2, 3.2, -6.0, -5.4, 'z', gy / 2, gy / 2])
+    STAIRS.append([-6.8, -3.2, -6.0, -4.6, 'x', gy, gy / 2])
+    STAIRS.append([3.2, 6.8, -6.0, -4.6, 'x', gy / 2, gy])
+    LEVELS.append(dict(y=gy, rects=[[x0, x1, z1 - 2, z1], [x0, x0 + 2, z0, z1], [x1 - 2, x1, z0, z1]]))
+    # balusters and the stair's sides as colliders: you can't step off, and from below you can't walk into it
+    for s_ in (-1, 1):
+        collide(s_ * 2.2 - 0.1 * (s_ < 0), 0, -5.4, s_ * 2.2 + 0.1 * (s_ > 0) + 0.0001, gy / 2 + 1.0, -0.9)
+        collide(min(s_ * 2.3, s_ * 3.3), 0, -6.0, max(s_ * 2.3, s_ * 3.3), gy / 2 - 0.2, -5.3)   # the pocket under the landing
+        collide(min(s_ * 3.2, s_ * 6.8), gy / 2, -4.65, max(s_ * 3.2, s_ * 6.8), gy + 1.0, -4.5)  # side flight's open edge
+        collide(min(s_ * 2.2, s_ * 3.2), gy / 2, -5.45, max(s_ * 2.2, s_ * 3.2), gy / 2 + 1.0, -5.3)  # landing's front edge
+    # the gallery's balustrade (left open where the side flights arrive)
+    collide(x0 + 1.95, gy, z1 - 2.05, x1 - 1.95, gy + 1.0, z1 - 1.95)
+    for xx in (x0 + 2, x1 - 2):
+        collide(xx - 0.05, gy, z0 + 1.6, xx + 0.05, gy + 1.0, z1 - 2)
     # pictures: three tiers of them in gilt frames on the hall walls (the Association's collection)
     hang = [(frame((x0 + 0.18, 0, z1), (0, 0, -1), (1, 0, 0)), 16), (frame((x1 - 0.18, 0, z0), (0, 0, 1), (-1, 0, 0)), 16)]
     idx = 0
@@ -642,9 +671,11 @@ def build_hall(R):
             if abs(u - 4) < 1.4 or abs(u - 12) < 1.4: continue  # leave the doors clear
             if F is hang[0][0] and u in (6.0, 10.0): continue    # the hall fireplace
             frame_painting(F, u, 1.9, 1.6, 1.2, idx); idx += 1
-        for u in (2.5, 5.5, 8.5, 11.5, 14.0):
+        for u in (5.5, 8.5, 11.5):  # (the gallery doors are at u = 2 and 14)
             frame_painting(F, u, 7.4, 1.8, 1.3, idx); idx += 1
             frame_painting(F, u, 9.2, 1.1, 0.8, idx + 3); idx += 1
+        for u in (2.0, 14.0):
+            frame_painting(F, u, 10.2, 1.4, 1.0, idx); idx += 1
     Ff = frame((x0, 0, z1 - 0.18), (1, 0, 0), (0, 0, -1))
     for u in (3.0, 11.0):
         frame_painting(Ff, u, 7.5, 2.4, 1.7, idx); idx += 1
@@ -660,7 +691,19 @@ def build_hall(R):
         F = frame(A, rr, nn)
         L = (B - A).length
         Fi = F @ Matrix.Translation((0, 0, T / 2 + 0.01))
-        lbox(Fi, 'fresco_red', 0, L, gy + 0.1, HALL_H - 1.0, 0, 0.01)
+        # leave the gallery doorways open: find the doors on this wall
+        cuts = sorted((F.inverted() @ Vector((dx, 0, dz))).x for dx, dz in UPPER_DOORS
+                      if abs((F.inverted() @ Vector((dx, 0, dz))).z) < 0.3 and 0 < (F.inverted() @ Vector((dx, 0, dz))).x < L)
+        u = 0.0
+        for c in cuts + [L + 10]:
+            if min(L, c - D / 2 - 0.15) > u:
+                lbox(Fi, 'fresco_red', u, min(L, c - D / 2 - 0.15), gy + 0.1, HALL_H - 1.0, 0, 0.01)
+            if c > L: break
+            lbox(Fi, 'fresco_red', c - D / 2 - 0.15, c + D / 2 + 0.15, gy + DH + 0.15, HALL_H - 1.0, 0, 0.01)
+            for side in (-1, 1):  # door surround
+                lbox(Fi, 'trim_dark', c + side * D / 2 - 0.15 * (side < 0), c + side * D / 2 + 0.15 * (side > 0), gy, gy + DH + 0.15, 0, 0.06)
+            lbox(Fi, 'trim_dark', c - D / 2 - 0.15, c + D / 2 + 0.15, gy + DH, gy + DH + 0.15, 0, 0.06)
+            u = c + D / 2 + 0.15
         lbox(Fi, 'gilt_frame', 0, L, HALL_H - 1.0, HALL_H - 0.85, 0, 0.06)
         lbox(Fi, 'walnut_panel', 0, L, HALL_H - 0.85, HALL_H, 0, 0.3)
     # ceiling with a stained-glass skylight, and two great gasoliers
@@ -781,13 +824,18 @@ def build_exterior():
         r = (B - A).normalized(); n = outward(A, B, Vector((0, 0, 0)))
         F = frame(A, r, n)
         L = (B - A).length
-        lbox(F, 'ashlar', 0, L, up0, up1, -T / 2 - 0.05, T / 2 + 0.05)
-        Fo = F @ Matrix.Translation((0, 0, T / 2 + 0.05))
-        lbox(Fo, 'trim_cream', 0, L, up0 - 0.1, up0 + 0.15, 0, 0.2)  # string course
+        ks = []
         k = 2.0
         while k < L - 1.5:
-            lancet(Fo, k, up0 + 1.0, 0.9, 2.4, lit=rnd.random() < 0.25)
-            k += 3.0
+            ks.append(k); k += 3.0
+        # the wall itself, with an opening behind each lancet so the rooms upstairs have windows
+        Fw, _ = wall(a, b, up0, up1, [(t if (B - A).dot(r) > 0 else t, 0.9, UF + 0.9, UF + 3.3) for t in ks], mat='ashlar', thick=T + 0.1)
+        Fo = F @ Matrix.Translation((0, 0, T / 2 + 0.05))
+        lbox(Fo, 'trim_cream', 0, L, up0 - 0.1, up0 + 0.15, 0, 0.2)  # string course
+        for k in ks:
+            lancet(Fo, k, UF + 0.9, 0.9, 2.4, glass='glass_clear')  # clear: the rooms upstairs look out over the city
+            p = F @ Vector((k, 0, 0))
+            UPPER_WINDOWS.append((p.x, p.z))
         merlons(Fo, 0, L, up1, 0.0)
     wbox('ashlar', -7, 7, H, up1, -6.25, -6.18)  # the hall's back wall above the solarium roof, outside face
     # the hall's clerestory and roof rising above the house
@@ -1853,6 +1901,254 @@ DH_FRONT = 3.4
 
 
 
+# --- the upper floor ------------------------------------------------------------------------------
+
+UPPER_ROOMS = {
+    'sitting': dict(name='The Front Sitting Room', rect=(-7, 7, 10, 14), wains='oak_panel', upper='fresco_louis', curtains='velvet_red'),
+    'antique': dict(name='The Antique Room', rect=(-15, -7, 2, 14), wains='oak_panel', upper='studio_wall', curtains='velvet_green'),
+    'bedroom': dict(name="Mrs. Hopkins's Bedroom", rect=(-15, -7, -6, 2), wains='rosewood_panel', upper='fresco_louis', curtains='velvet_red'),
+    'prints': dict(name='The Print Room', rect=(-15, -7, -14, -6), wains='walnut_panel', upper='fresco_gothic', curtains='velvet_green'),
+    'painting': dict(name='The Painting Studio', rect=(7, 15, 2, 14), wains='oak_panel', upper='studio_wall', curtains='velvet_green'),
+    'sculpture': dict(name='The Sculpture Studio', rect=(7, 15, -6, 2), wains='oak_panel', upper='studio_wall', curtains=None),
+    'landing': dict(name='The Tower Landing', rect=(7, 15, -14, -6), wains='oak_panel', upper='fresco_louis', curtains='velvet_red'),
+}
+EXTERIOR_LINES = (('x', -15), ('x', 15), ('z', 14), ('z', -14))
+
+
+def upper_wall(a, b, doors=(), windows=(), mat='plaster', thick=T):
+    """A wall on the upper floor, from the floor slab to the ceiling, with doors and windows at t (metres from a)."""
+    ops = [(t, D, UF, UF + DH) for t in doors] + [(t, 0.9, UF + 0.9, UF + 3.3) for t in windows]
+    F, _ = wall(a, b, UF - 0.5, UC, ops, mat=mat, thick=thick)
+    for t in doors:
+        door_leaves(F @ Matrix.Translation((0, UF, 0)), t, D, DH, 1, thick=thick)
+        p = F @ Vector((t, 0, 0)); UPPER_DOORS.append((p.x, p.z))
+    for t in windows:
+        p = F @ Vector((t, 0, 0)); UPPER_WINDOWS.append((p.x, p.z))
+    return F
+
+
+def line_upper_room(key):
+    """Panel, paper and curtain an upper room's four walls, leaving its doors and windows open."""
+    room = UPPER_ROOMS[key]
+    x0, x1, z0, z1 = room['rect']
+    centre = Vector(((x0 + x1) / 2, 0, (z0 + z1) / 2))
+    for (ax, az), (bx, bz) in (((x0, z0), (x1, z0)), ((x1, z0), (x1, z1)), ((x1, z1), (x0, z1)), ((x0, z1), (x0, z0))):
+        A, B = Vector((ax, 0, az)), Vector((bx, 0, bz))
+        rr = (B - A).normalized(); L = (B - A).length
+        n_in = Vector((-rr.z, 0, rr.x))
+        if n_in.dot(centre - A) < 0: n_in = -n_in
+        on_ext = (ax == bx and ax in (-15, 15)) or (az == bz and az in (-14, 14)) or \
+                 (ax == bx and abs(ax) == 7 and max(az, bz) <= -6)
+        thick = T + 0.1 if on_ext else T
+        F = frame(Vector((ax, UF, az)), rr, n_in)
+        ops = []
+        for (px, pz) in UPPER_DOORS + UPPER_WINDOWS:
+            q = Vector((px, 0, pz)) - A
+            t = q.dot(rr)
+            if abs(q.dot(n_in)) < 0.3 and 0.5 < t < L - 0.5:
+                is_door = (px, pz) in UPPER_DOORS
+                ops.append((t, D, 0, DH) if is_door else (t, 0.9, 0.9, 3.3))
+        lining(F, L, 1, ops, UC - UF, wains=room['wains'], upper=room['upper'], thick=thick,
+               curtains=room['curtains'] if on_ext else None)
+
+
+def statue(x, z, rot=0.0, h=1.7):
+    """A plaster cast of a classical figure on its pedestal (the antique class drew from these)."""
+    plinth(x, z, 0.9, 0.6, 'plaster_cast')
+    F = Matrix.Translation((x, 0.96, z)) @ Matrix.Rotation(rot, 4, 'Y')
+    k = h / 1.7
+    cyl('plaster_cast', F @ Vector((0, 0, 0)), 0.75 * k, 0.24 * k, 0.17 * k, seg=12)          # draped legs
+    cyl('plaster_cast', F @ Vector((0, 0.75 * k, 0)), 0.55 * k, 0.15 * k, 0.19 * k, seg=12)   # torso
+    sphere('plaster_cast', F @ Vector((0, 1.38 * k, 0.02)), 0.12 * k, 12)                    # head
+    cyl('plaster_cast', F @ Vector((0, 1.28 * k, 0)), 0.1 * k, 0.05 * k, seg=8)              # neck
+    tube('plaster_cast', [F @ Vector((0.17 * k, 1.22 * k, 0)), F @ Vector((0.26 * k, 0.95 * k, 0.1 * k)),
+                          F @ Vector((0.2 * k, 0.75 * k, 0.16 * k))], 0.05 * k, 8)
+    tube('plaster_cast', [F @ Vector((-0.17 * k, 1.22 * k, 0)), F @ Vector((-0.3 * k, 1.35 * k, -0.05 * k)),
+                          F @ Vector((-0.28 * k, 1.6 * k, -0.04 * k))], 0.05 * k, 8)
+
+
+def donkey(x, z, rot):
+    """A drawing donkey: the low bench students straddle, with a board propped at the front."""
+    F = Matrix.Translation((x, 0, z)) @ Matrix.Rotation(rot, 4, 'Y')
+    lbox(F, 'oak_panel', -0.15, 0.15, 0.42, 0.47, -0.55, 0.55)
+    for zz in (-0.45, 0.45):
+        lbox(F, 'oak_panel', -0.14, 0.14, 0, 0.42, zz - 0.04, zz + 0.04)
+    lbox(F, 'oak_panel', -0.25, 0.25, 0.47, 1.1, -0.62, -0.58)
+    lbox(F, 'canvas', -0.24, 0.24, 0.6, 1.05, -0.58, -0.57)
+
+
+def four_poster(x, z, rot):
+    F = Matrix.Translation((x, 0, z)) @ Matrix.Rotation(rot, 4, 'Y')
+    lbox(F, 'rosewood_panel', -0.85, 0.85, 0.3, 0.6, -1.0, 1.1)
+    lbox(F, 'canvas', -0.8, 0.8, 0.6, 0.78, -0.95, 1.05)                 # the mattress and sheets
+    lbox(F, 'velvet_red', -0.82, 0.82, 0.62, 0.8, -0.6, 1.08)            # the coverlet
+    lbox(F, 'clock_face', -0.7, -0.05, 0.78, 0.95, -0.95, -0.6)  # pillows
+    lbox(F, 'clock_face', 0.05, 0.7, 0.78, 0.95, -0.95, -0.6)
+    lbox(F, 'rosewood_panel', -0.85, 0.85, 0.3, 1.6, -1.05, -0.98)     # headboard
+    for (u, w) in ((-0.85, -1.0), (0.85, -1.0), (-0.85, 1.1), (0.85, 1.1)):
+        cyl('rosewood_panel', F @ Vector((u, 0, w)), 2.6, 0.06, 0.05, seg=8)
+    lbox(F, 'rosewood_panel', -0.92, 0.92, 2.6, 2.85, -1.07, 1.17)      # tester
+    for s in (-1, 1):                                                    # hangings, drawn back at the foot
+        lbox(F, 'velvet_red', s * 0.88 - 0.03, s * 0.88 + 0.03, 0.4, 2.6, -1.0, -0.2)
+        lbox(F, 'velvet_red', s * 0.88 - 0.03, s * 0.88 + 0.03, 0.4, 2.6, 0.85, 1.12)
+    lo, hi = F @ Vector((-0.9, 0, -1.05)), F @ Vector((0.9, 2.85, 1.15))
+    collide(min(lo.x, hi.x), 0, min(lo.z, hi.z), max(lo.x, hi.x), 2.85, max(lo.z, hi.z))
+
+
+def cabinet(x, z, rot, w=1.2, h=2.2, d=0.55, mat='rosewood_panel', drawers=0):
+    """A wardrobe, or (drawers > 0) a plan chest of wide shallow drawers."""
+    F = Matrix.Translation((x, 0, z)) @ Matrix.Rotation(rot, 4, 'Y')
+    lbox(F, mat, -w / 2, w / 2, 0, h, -d / 2, d / 2)
+    if drawers:
+        for k in range(drawers):
+            v = 0.1 + k * (h - 0.15) / drawers
+            lbox(F, mat, -w / 2 + 0.04, w / 2 - 0.04, v, v + (h - 0.15) / drawers - 0.02, d / 2, d / 2 + 0.015)
+            lbox(F, 'brass', -0.12, 0.12, v + 0.05, v + 0.08, d / 2 + 0.015, d / 2 + 0.035)
+    else:
+        for s in (-1, 1):
+            lbox(F, mat, s * w / 4 - w / 4 + 0.03, s * w / 4 + w / 4 - 0.03, 0.15, h - 0.25, d / 2, d / 2 + 0.02)
+            sphere('brass', F @ Vector((s * 0.06, h / 2, d / 2 + 0.04)), 0.025, 6)
+        lbox(F, mat, -w / 2 - 0.05, w / 2 + 0.05, h, h + 0.12, -d / 2 - 0.04, d / 2 + 0.04)
+    lo, hi = F @ Vector((-w / 2, 0, -d / 2)), F @ Vector((w / 2, h, d / 2 + 0.04))
+    collide(min(lo.x, hi.x), lo.y, min(lo.z, hi.z), max(lo.x, hi.x), hi.y, max(lo.z, hi.z))
+
+
+def modelling_stand(x, z, idx):
+    """A sculptor's stand: a tripod, a turntable and a clay bust under way."""
+    for k in range(3):
+        a = 2 * math.pi * k / 3
+        tube('oak_panel', [(x + math.cos(a) * 0.35, 0, z + math.sin(a) * 0.35), (x, 1.0, z)], 0.03, 6)
+    cyl('oak_panel', (x, 1.0, z), 0.06, 0.3, seg=14)
+    cyl('clay', (x, 1.06, z), 0.18, 0.13, 0.1, seg=10)
+    if idx % 2: sphere('clay', (x, 1.36, z), 0.13, 10)
+    else: cyl('clay', (x, 1.24, z), 0.3, 0.12, 0.06, seg=8)
+    collide(x - 0.35, 0, z - 0.35, x + 0.35, 1.5, z + 0.35)
+
+
+class lifted:
+    """Build furniture with the ground-floor helpers, then raise everything made inside the block by dy:
+    geometry, colliders and lamps."""
+    def __init__(self, dy): self.dy = dy
+    def __enter__(self):
+        self.counts = {m: len(bm.verts) for m, bm in BM.items()}
+        self.nc, self.nl = len(COLLIDERS), len(LAMPS)
+    def __exit__(self, *exc):
+        for m, bm in BM.items():
+            bm.verts.ensure_lookup_table()
+            for v in bm.verts[self.counts.get(m, 0):]:
+                v.co.y += self.dy
+        for c in COLLIDERS[self.nc:]:
+            c[1] += self.dy; c[4] += self.dy
+        for l in LAMPS[self.nl:]:
+            l[1] += self.dy
+
+
+def build_upper():
+    material('studio_wall', '#a89e8a', rough=0.95)
+    material('clay', '#6a5a48', rough=0.9)
+    # the partitions and the walls not already there
+    upper_wall((-15, 2), (-7, 2), doors=[4])
+    upper_wall((-15, -6), (-7, -6), doors=[4])
+    upper_wall((7, 2), (15, 2), doors=[4])
+    upper_wall((7, -6), (15, -6), doors=[4])
+    upper_wall((-7, 10), (-7, 14), doors=[2])
+    upper_wall((7, 14), (7, 10), doors=[2])
+    # over the solarium's glass roof the back rooms have outside walls with a window onto it
+    for a, b in (((-7, -14), (-7, -6)), ((7, -6), (7, -14))):
+        F = upper_wall(a, b, windows=[4], mat='ashlar', thick=T + 0.1)
+        A, B = Vector((a[0], 0, a[1])), Vector((b[0], 0, b[1]))
+        n = outward(A, B, Vector((a[0] * 2, 0, -10)))
+        Fo = frame(A, (B - A).normalized(), n) @ Matrix.Translation((0, 0, (T + 0.1) / 2))
+        lancet(Fo, 4, UF + 0.9, 0.9, 2.4, glass='glass_clear')
+    # floors, ceilings, lamps; the walkable areas
+    rects = []
+    for key, room in UPPER_ROOMS.items():
+        x0, x1, z0, z1 = room['rect']
+        floor('parquet', x0, x1, z0, z1, y=UF)
+        coffered_ceiling(x0, x1, z0, z1, UC, beam='oak_panel', field=room['upper'] if 'fresco' in room['upper'] else 'trim_cream')
+        gasolier((x0 + x1) / 2, UC - 0.35, (z0 + z1) / 2, drop=1.4)
+        ceiling_bosses(x0, x1, z0, z1, UC)
+        rects.append([x0, x1, z0, z1])
+        ROOMS.append(dict(id=key, name=room['name'], x0=x0, z0=z0, x1=x1, z1=z1, y=UF))
+    LEVELS.append(dict(y=UF, rects=rects))
+    for key in UPPER_ROOMS:
+        line_upper_room(key)
+    with lifted(UF):
+        furnish_upper()
+
+
+def furnish_upper():
+    """Upstairs furniture, laid out at floor level 0 (build_upper lifts it to the upper floor)."""
+    Y = 0.0
+    # the front sitting room: a fire, a sofa and chairs looking out over California Street
+    fireplace(frame((-7, Y, 10 + T / 2), (1, 0, 0), (0, 0, 1)), 2.6, mat='marble_white', w=1.8)
+    sofa(1.5, 11.6, 0, 'velvet_red', 2.2)
+    for x in (-1.6, 4.4):
+        wingback(x, 12.2, facing(x, 12.2, x, 14), 'velvet_red')
+    pedestal_table(1.5, 12.8, lamp=True, r=0.35)
+    rug(-3.5, 5.5, 10.6, 13.6, 1)
+    # the antique room: casts of classical figures, students' donkeys and easels round them
+    for (x, z, rot) in ((-11, 11.5, math.pi), (-13.5, 5.0, math.pi / 2), (-8.5, 5.0, -math.pi / 2)):
+        statue(x, z, rot)
+    for (x, z, tx, tz) in ((-11, 8.8, -11, 11.5), (-12.2, 7.6, -13.5, 5.0), (-9.8, 7.6, -8.5, 5.0), (-11, 4.6, -13.5, 5.0)):
+        donkey(x, z, facing(x, z, tx, tz) + math.pi)
+    for (x, z) in ((-14.2, 13.2), (-7.9, 13.2)):
+        bust(x, 1.2, z)
+    # Mrs. Hopkins's bedroom, kept as she left it: the four-poster, a wardrobe, a dressing table, the fire
+    four_poster(-12.6, -2.2, math.pi / 2)
+    cabinet(-8.0, -4.6, -math.pi / 2, w=1.4)
+    cabinet(-14.5, 1.0, math.pi / 2, w=1.0, h=0.8, d=0.5, drawers=3)  # dressing table
+    canvas('mirror', [(-14.72, Y + 0.95, 0.55), (-14.72, Y + 0.95, 1.45), (-14.72, Y + 1.9, 1.45), (-14.72, Y + 1.9, 0.55)])
+    fireplace(frame((-15, Y, 2 - T / 2), (1, 0, 0), (0, 0, -1)), 1.6, mat='marble_white', w=1.6)
+    sofa(-9.0, -0.4, -math.pi / 2, 'velvet_green', 1.6)
+    rug(-14.2, -10.0, -4.2, 0.2, 2)
+    # the print room: plan chests, a long table of prints laid out, portfolios
+    for x in (-13.8, -11.4):
+        cabinet(x, -13.4, 0, w=2.0, h=1.0, d=0.9, mat='walnut_panel', drawers=6)
+    table(-11, -9.5, 3.2, 1.2, mat='walnut_panel', cloth='velvet_green')
+    for k, x in enumerate((-12.0, -10.6, -9.4)):
+        mat, a = PICTURES[(k * 7 + 2) % len(PICTURES)]
+        w = 0.8; h = w / a
+        canvas(mat, [(x - w / 2, Y + 0.765, -9.5 + h / 2), (x + w / 2, Y + 0.765, -9.5 + h / 2),
+                     (x + w / 2, Y + 0.765, -9.5 - h / 2), (x - w / 2, Y + 0.765, -9.5 - h / 2)])
+    INTERACT.append(dict(id='prints', label='Engravings laid out on the table', pos=[-11, UF + 0.9, -9.5], r=2.0))
+    # the painting studio: easels round a model's throne, a still life, canvases stacked against the walls
+    wbox('velvet_red', 10.3, 11.7, Y, Y + 0.4, 9.3, 10.7)
+    collide(10.3, Y, 9.3, 11.7, Y + 0.4, 10.7)
+    chair(11, 10.0, math.pi, 'velvet_red')
+    for k in range(7):
+        a = math.pi * (1.1 + k * 0.13)
+        x, z = 11 + math.cos(a) * 3.0, 10 + math.sin(a) * 3.0
+        easel(x, z, facing(x, z, 11, 10) + math.pi, k + 3)
+    table(13.6, 4.0, 1.2, 0.8, mat='oak_panel', cloth='velvet_green')
+    amphora(13.4, Y + 0.76, 4.0, 0.5, 'clay'); sphere('cablecar_red', (13.9, Y + 0.84, 3.8), 0.06, 8)
+    sphere('cablecar_cream', (13.75, Y + 0.84, 4.25), 0.06, 8)
+    for k in range(4):  # canvases leaning against the partition
+        F = Matrix.Translation((8.2 + k * 0.25, Y, 2.35)) @ Matrix.Rotation(-0.25, 4, 'X')
+        lbox(F, 'canvas', 0, 0.9 - k * 0.1, 0, 1.1 - k * 0.1, 0, 0.03)
+    INTERACT.append(dict(id='studio', label="The model's throne", pos=[11, UF + 0.5, 10], r=2.0))
+    # the sculpture studio: modelling stands, clay, a plaster figure, sacks of plaster
+    for k, (x, z) in enumerate(((9.0, -3.5), (11.0, -1.5), (13.0, -3.5), (11.0, -4.8))):
+        modelling_stand(x, z, k)
+    statue(13.8, 0.8, math.pi * 0.75, h=1.8)
+    for (x, z) in ((7.8, 1.2), (8.4, 1.3)):
+        wbox('canvas', x - 0.25, x + 0.25, Y, Y + 0.45, z - 0.2, z + 0.2)
+    # the tower landing: the spiral stair carries on up; a bench and pictures
+    cx, cz = 11, -10
+    cyl('walnut_panel', (cx, Y, cz), UC - UF, 0.15, seg=10)
+    for k in range(14):
+        a = k * 0.45 + 1.0
+        F = Matrix.Translation((cx, Y + 0.2 + k * 0.33, cz)) @ Matrix.Rotation(-a, 4, 'Y')
+        lbox(F, 'oak_panel', 0.15, 1.6, -0.05, 0.05, -0.25, 0.25)
+    collide(cx - 1.7, Y, cz - 1.7, cx + 1.7, UC - UF, cz + 1.7)
+    INTERACT.append(dict(id='tower2', label='Climb the tower', pos=[cx - 1.9, UF + 1.0, cz + 0.8], r=1.6, to='tower_room'))
+    INTERACT.append(dict(id='bedroom', label="Mrs. Hopkins's bed", pos=[-12.6, UF + 0.9, -0.8], r=2.0))
+    INTERACT.append(dict(id='casts', label='The antique casts', pos=[-11, UF + 1.0, 8.5], r=2.2))
+    tw = frame((15 - (T + 0.1) / 2, Y, -6), (0, 0, -1), (-1, 0, 0))
+    frame_painting(tw, 2.5, 1.6, 1.4, 1.1, 9)
+
+
+
 def facing(x, z, tx, tz):
     """Rotation for a chair at (x, z) whose front (local -z) looks toward (tx, tz)."""
     return math.atan2(-(tx - x), -(tz - z))
@@ -1936,6 +2232,7 @@ def main():
     dress_rooms(R)
     build_solarium_glass()
     build_exterior()
+    build_upper()
     build_grounds()
     root = finish('Hopkins')
     for k, p in enumerate(LAMPS):
@@ -1952,7 +2249,8 @@ def main():
     with open(os.path.join(ROOT, 'public', 'models', 'hopkins.json'), 'w') as f:
         json.dump(dict(colliders=COLLIDERS, lamps=[[round(v, 3) for v in p] for p in LAMPS], rooms=ROOMS,
                        interact=INTERACT, spawn=dict(pos=[-4.0, STREET_Y, 47.4], yaw=math.pi),
-                       ground=dict(street=STREET_Y, wall=WALL_Z1, ramps=RAMPS),
+                       ground=dict(street=STREET_Y, wall=WALL_Z1, ramps=RAMPS, stairs=STAIRS, levels=LEVELS),
+                       hall=[-7, 7, -6, 10],
                        tower=dict(top=[11.5, 22.0, -9.5], foot=[9.2, 0, -8.6])), f, separators=(',', ':'))
     if RENDER: preview(RENDER)
 
