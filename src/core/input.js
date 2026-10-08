@@ -64,6 +64,7 @@ export class Input {
   moveVector() {
     if (!this.enabled) return { x: 0, y: 0 };
     let x = this.stick.x, y = this.stick.y;
+    if (this.pad) { x += this.pad.lx; y -= this.pad.ly; }
     const k = this.keys;
     if (k.has('KeyW') || k.has('ArrowUp')) y += 1;
     if (k.has('KeyS') || k.has('ArrowDown')) y -= 1;
@@ -74,9 +75,13 @@ export class Input {
     return { x, y };
   }
 
-  takeLook() {
+  takeLook(dt = 0) {
     const r = { x: this.dx, y: this.dy };
     this.dx = this.dy = 0;
+    if (this.pad && this.enabled) {  // right stick, in the same units as dragging (pixels)
+      r.x += this.pad.rx * 520 * dt;
+      r.y += this.pad.ry * 320 * dt;
+    }
     return r;
   }
 }

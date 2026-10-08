@@ -22,6 +22,13 @@ Controls: touch stick on the left, drag to look, context button to examine or
 talk, eye button for Focus. On desktop: WASD, mouse drag, E, F, B (casebook),
 M (Mind Palace).
 
+With a controller (Xbox, PlayStation or MFi, through the browser's Gamepad
+API): left stick walk, right stick look, Ⓐ act / confirm, Ⓑ back, Ⓧ Focus,
+Ⓨ Mind Palace, ☰ Notebook, LB/RB flip notebook tabs; in menus the d-pad or
+left stick moves the highlight. The first press only switches to controller
+mode. To play on a TV, run it in Safari on a Mac with the controller paired to
+the Mac and AirPlay the screen to the Apple TV.
+
 See `DESIGN.md` for the design, story plan and code layout.
 See `docs/SETUP.md` for the full setup: tools, Blender add-ons and asset packs, MCP, build scripts and testing.
 

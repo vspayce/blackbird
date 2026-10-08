@@ -77,6 +77,9 @@ shoulder and comments.
   anywhere else to look. A context button above the Focus button names the
   nearest thing to do ("Examine the broken fence", "Talk to Sgt. Polhaus").
 - Desktop: WASD, drag to look, E to act, F for Focus, B notebook, M Mind Palace.
+- Controller (Gamepad API, `src/core/gamepad.js`): sticks walk and look; A act, B back, X Focus,
+  Y Mind Palace, Menu notebook. Menus use spatial navigation over whatever buttons are on screen, so
+  new screens need no controller code. For TV play: a Mac or iPad AirPlayed to an Apple TV.
 - Clue markers are **bare circles**: what is there is only revealed on a tap.
   Markers turn gold once their clue is found.
 - Scenes can have slopes and stairs (the Hopkins drive and front steps). The
@@ -265,4 +268,4 @@ the traps we hit are in `docs/SETUP.md`.
 7. Chapter II with the character portrait and fight prediction.
 8. Focus tells and presenting evidence mid-speech (Ch. III).
 9. Reconstruction, tailing.
-10. PWA install, controller support, localisation.
+10. PWA install, localisation; a tvOS build (Unity) if it goes to the App Store.

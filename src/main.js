@@ -4,6 +4,7 @@ import { Renderer } from './core/renderer.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { fullscreen } from './core/fullscreen.js';
+import { Pad, BTN } from './core/gamepad.js';
 import { Alley, loadSet } from './world/alley.js';
 import { Hopkins, loadHopkins } from './world/hopkins.js';
 import { createFigure, loadModels } from './game/figure.js';
@@ -35,6 +36,8 @@ class Game {
     this.renderer = new Renderer(this.canvas);
     this.renderer.setup(this.scene, this.camera);
     this.input = new Input(this.canvas);
+    this.pad = new Pad();
+    this.input.pad = this.pad;
     this.hud = new HUD();
     this.dialogue = new Dialogue();
     this.book = new Casebook();
@@ -388,7 +391,7 @@ class Game {
   }
 
   updateHolmes(dt) {
-    const look = this.input.takeLook();
+    const look = this.input.takeLook(dt);
     this.yaw -= look.x * 0.006;
     this.pitch = Math.max(-0.15, Math.min(0.95, this.pitch + look.y * 0.004));
 
@@ -544,10 +547,64 @@ class Game {
     hud.end();
   }
 
+  // --- controller --------------------------------------------------------------------------------
+  // Where the menu highlight lives in each mode (null: the sticks play the game instead).
+  padRoots() {
+    const $ = id => document.getElementById(id);
+    switch (this.mode) {
+      case 'title': case 'intro': case 'accuse': return [$('screen')];
+      case 'talk': return [$('dialogue')];
+      case 'book': return [$('book')];
+      case 'palace': return [$('palace')];
+      case 'closeup': return [$('labels'), $('btn-back')];
+      default: return null;
+    }
+  }
+
+  updatePad(dt) {
+    const p = this.pad;
+    p.poll();
+    if (!document.body.classList.contains('pad')) return;
+    if (p.justWoke) { const r = this.padRoots(); if (r) p.ensureSel(r, this.mode === 'title' ? '.primary' : null); return; }
+    const roots = this.padRoots();
+    const $ = id => document.getElementById(id);
+    const click = el => el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // menu highlight: always on screen where there is one, moved with the d-pad or the left stick
+    if (roots && !(this.mode === 'talk' && !this.dialogue.choices.children.length)) {
+      p.ensureSel(roots, this.mode === 'title' ? '.primary' : null);
+      const dir = p.navStep(dt);
+      if (dir) p.move(roots, dir);
+    } else p.clearSel();
+
+    if (p.pressed(BTN.A)) {
+      if (this.mode === 'explore') this.interact();
+      else if (this.mode === 'talk' && !this.dialogue.choices.children.length) this.dialogue.next();
+      else if (p.sel) click(p.sel);
+      else if (['intro', 'title', 'accuse'].includes(this.mode)) click($('screen'));  // tap-to-continue cards
+    }
+    if (p.pressed(BTN.B)) {
+      if (this.mode === 'closeup') this.leaveCloseup();
+      else if (this.mode === 'book') click($('book').querySelector('.close'));
+      else if (this.mode === 'palace') click($('palace').querySelector('.close'));
+      else if (this.mode === 'talk') click(this.dialogue.choices.querySelector('.bye'));
+      else if (this.mode === 'accuse') click($('screen').querySelector('.back'));
+    }
+    if (p.pressed(BTN.X) || p.pressed(BTN.R3)) this.toggleFocus();
+    if (p.pressed(BTN.Y) || p.pressed(BTN.VIEW)) this.mode === 'palace' ? click($('palace').querySelector('.close')) : this.openPalace();
+    if (p.pressed(BTN.MENU)) this.mode === 'book' ? click($('book').querySelector('.close')) : this.openBook();
+    if (this.mode === 'book' && (p.pressed(BTN.LB) || p.pressed(BTN.RB))) {  // flip notebook tabs
+      const tabs = [...$('book').querySelectorAll('.tabs button')];
+      const i = tabs.findIndex(t => t.classList.contains('on'));
+      click(tabs[(i + (p.pressed(BTN.RB) ? 1 : tabs.length - 1)) % tabs.length]);
+    }
+  }
+
   frame() {
     this.timer.update();
     const dt = Math.min(0.05, this.timer.getDelta());
     this.time += dt;
+    this.updatePad(dt);
 
     // Focus: drains while on, refills while off; the world slows around Holmes
     if (this.focusOn) {
