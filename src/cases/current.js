@@ -5,6 +5,9 @@ import * as gutman from './gutman.js';
 import * as gunsel from './gunsel.js';
 
 const CHAPTERS = { 1: archer, 4: gutman, 5: gunsel };
+// the next chapter that can be played after each (Chapters II and III are not written yet)
+export const NEXT_PLAYABLE = { 1: 4, 4: 5 };
+export const chapterNames = { 1: archer.CHAPTER.title, 4: gutman.CHAPTER.title, 5: gunsel.CHAPTER.title };
 export const chapterNumber = Number(new URLSearchParams(location.search).get('chapter')) || 1;
 const c = CHAPTERS[chapterNumber] ?? archer;
 

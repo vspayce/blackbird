@@ -1,6 +1,7 @@
 // Full-screen cards: title, chapter intro, the accusation and the ending.
 import { CHAPTER, CONCLUSION } from '../cases/current.js';
 import { describe } from '../game/saves.js';
+import { rideNext } from './ride.js';
 
 const el = () => document.getElementById('screen');
 
@@ -26,7 +27,8 @@ export function titleScreen({ latest, onNew, onContinue, onLoad, scenes = [] }) 
         ${scenes.length ? '<button data-a="scenes">Scenes</button>' : ''}
       </div>
       ${latest ? `<p class="resume"></p>` : ''}
-      <div class="scenes hidden">${scenes.map(([label, q]) => `<a href="./${q}">${label}</a>`).join('')}</div>
+      <div class="scenes hidden">${scenes.map(([label, q]) => `<a href="./${q}">${label}</a>`).join('')}
+        <button class="reset" data-a="reset">Reset all progress (testing)</button></div>
       <p class="credit">After Dashiell Hammett's <i>The Maltese Falcon</i> (1930) and Arthur Conan Doyle.</p>
     </div>`);
   if (latest) s.querySelector('.resume').textContent = describe(latest) + (latest.objective ? ` · ${latest.objective}` : '');
@@ -34,6 +36,17 @@ export function titleScreen({ latest, onNew, onContinue, onLoad, scenes = [] }) 
   s.querySelector('[data-a=continue]')?.addEventListener('click', onContinue);
   s.querySelector('[data-a=load]').onclick = onLoad;
   s.querySelector('[data-a=scenes]')?.addEventListener('click', () => s.querySelector('.scenes').classList.toggle('hidden'));
+  for (const a of s.querySelectorAll('.scenes a')) a.addEventListener('click', () => rideNext());  // arrive by cab
+  // wipe every save, autosave and chapter's progress in this browser (a second tap confirms)
+  const reset = s.querySelector('[data-a=reset]');
+  reset.onclick = e => {
+    e.stopPropagation();
+    if (!reset.classList.contains('confirm')) { reset.classList.add('confirm'); reset.textContent = 'Tap again: erase every save'; return; }
+    for (const store of [localStorage, sessionStorage]) {
+      try { for (const k of Object.keys(store)) if (k.startsWith('blackbird.')) store.removeItem(k); } catch { /* blocked */ }
+    }
+    location.href = './';
+  };
 }
 
 // The pause menu
@@ -146,7 +159,7 @@ export function accuse({ onAnswer, onBack }) {
 }
 
 // End of chapter: the case rating, then on to what comes next.
-export function endCard({ rating, onTitle }) {
+export function endCard({ rating, onTitle, next }) {
   const stars = '★'.repeat(rating.stars) + '☆'.repeat(5 - rating.stars);
   const s = show(`<div class="title end">
       <p class="pre">Case closed</p>
@@ -154,9 +167,10 @@ export function endCard({ rating, onTitle }) {
       <div class="rating"><div class="stars" aria-label="${rating.stars} of 5">${stars}</div>
         <table>${rating.rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table></div>
       <p class="sub">To be continued · ${CHAPTER.next}</p>
-      <div class="btns"><button class="primary">Title screen</button></div>
+      <div class="btns">${next ? '<button class="primary" data-a="next"></button>' : ''}<button class="${next ? '' : 'primary'}" data-a="title">Title screen</button></div>
     </div>`);
-  s.querySelector('button').onclick = onTitle;
+  s.querySelector('[data-a=title]').onclick = onTitle;
+  if (next) { const b = s.querySelector('[data-a=next]'); b.textContent = `On to ${next.label}`; b.onclick = next.go; }
 }
 
 // A broken memory: fragments of a scene shown out of order. Tap them in the order they happened; a wrong one

@@ -11,6 +11,7 @@ export const CHAPTER = {
   title: 'Chapter IV · The Fat Man',
   next: 'Chapter V · The Gunsel',
   world: 'hopkins',
+  ride: { to: 'Nob Hill', place: 'The Mark Hopkins Institute of Art', time: 'Ten o\'clock at night' },
   start: 'spawn',
   startClues: ['note'],
   // Gutman asked for Holmes alone: Watson stays below the tower until the whisky

@@ -17,6 +17,8 @@ import { Casebook, MindPalace } from './ui/palace.js';
 import { titleScreen, cards, accuse, endCard, hideScreen, reconstruct, pauseMenu, slotPicker, codeScreen } from './ui/screens.js';
 import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION, EVENTS, TAIL, chapterNumber } from './cases/current.js';
 import { saves } from './game/saves.js';
+import { showRide, rideNext } from './ui/ride.js';
+import { NEXT_PLAYABLE, chapterNames } from './cases/current.js';
 
 const HOLMES_LOOK = { model: 'holmes', coat: '#4a4740', trousers: '#2e2c2a', hat: 'deerstalker', hatColor: '#6b6250', cape: true, longCoat: true, hair: '#1d1712', height: 1.86 };
 const WALK = 2.0;           // m/s at full stick: a brisk walk
@@ -84,7 +86,6 @@ class Game {
     this.timer.connect?.(document);
     this.renderer.r.setAnimationLoop(() => this.frame());
     this.title();
-    document.getElementById('loading').remove();
   }
 
   // --- people -------------------------------------------------------------
@@ -239,6 +240,7 @@ class Game {
     if (data.chapter !== chapterNumber) {
       let id = slotId;
       if (!id || !saves.read(id)) { sessionStorage.setItem('blackbird.pending', JSON.stringify(data)); id = 'pending'; }
+      rideNext();
       location.href = `./?chapter=${data.chapter}&load=${id}`;
       return;
     }
@@ -529,7 +531,11 @@ class Game {
         cards(CONCLUSION.epilogue, () => {
           this.state.solved = true; this.state.save();
           saves.write('auto', { ...this.snapshot(), objective: 'Chapter complete' });
-          endCard({ rating: this.state.rating(), onTitle: () => this.title() });
+          const next = NEXT_PLAYABLE[chapterNumber];
+          endCard({
+            rating: this.state.rating(), onTitle: () => this.title(),
+            next: next && { label: chapterNames[next], go: () => { rideNext(); location.href = `./?chapter=${next}`; } },
+          });
         }, 'intro epilogue');
       },
       onBack: () => { hideScreen(); this.setMode('explore'); },
@@ -831,5 +837,6 @@ class Game {
 
 const models = ['holmes', ...new Set(Object.values(PREVIEW ? { w: PEOPLE.watson } : PEOPLE).map(p => p.look.model).filter(Boolean))];
 if (CHAPTER.id === 'archer' && !PREVIEW) models.push('archer');
+const ride = showRide(PREVIEW ? { to: 'Nob Hill', place: 'The Mark Hopkins Institute of Art', time: 'An evening walk' } : CHAPTER.ride);
 const assets = [loadModels(models), { hopkins: loadHopkins, kearny: loadKearny }[WORLD]?.() ?? loadSet()];
-Promise.all(assets).then(() => { window.game = new Game(); });
+Promise.all(assets).then(() => { window.game = new Game(); return ride(); });

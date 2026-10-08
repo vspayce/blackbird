@@ -13,6 +13,7 @@ export const CHAPTER = {
   title: 'Chapter V · The Gunsel',
   next: 'Chapter VI · La Paloma',
   world: 'kearny',
+  ride: { to: 'Kearny Street', place: 'The Palace Hotel', time: 'Wednesday morning, in fog' },
   start: 'spawn',
   startClues: ['paloma'],
   opening: 'Slowly, Watson. Look in the shop windows, not behind us.',

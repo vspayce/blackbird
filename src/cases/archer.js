@@ -9,6 +9,7 @@ export const CHAPTER = {
   title: 'Chapter I · Burritt Alley',
   next: 'Chapter II · The Levantine',
   world: 'alley',
+  ride: { to: 'Bush Street', place: 'Burritt Alley', time: 'Half past two in the morning' },
   opening: 'Two in the morning, and Polhaus already here. Let us see what the fog has left us, Watson.',
   summary: 'Miss Wonderly hired Archer yesterday to follow a man named Floyd Thursby. Holmes was in the room and said nothing. At two this morning Archer was shot dead in Burritt Alley.',
   intro: [

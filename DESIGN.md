@@ -211,8 +211,12 @@ remember.
   reloads into that chapter. Saves live in the browser's storage, so they are per device unless moved by code.
 - Fonts: IM Fell English for narrative, Special Elite (typewriter) for Focus
   reads, IM Fell English SC for the shop signs in the sets.
+- **The cab ride** (`src/ui/ride.js`): moving between chapters (the end card's "On to …", Scenes, Continue
+  into another chapter) shows a hansom cab in silhouette through gaslit fog with the destination, while the next
+  scene loads. Each chapter's `CHAPTER.ride` names where it is going.
 - The title screen's **Scenes** button jumps to any scene for testing
-  (`?skip=1` Chapter I without the intro, `?scene=hopkins` the Institute).
+  (`?skip=1` Chapter I without the intro, `?scene=hopkins` the Institute), and has
+  a **Reset all progress** button that erases every save in the browser (two taps).
 
 ## Tech
 - Vite + three.js, vanilla ES modules, HTML/CSS UI. Hosted on GitHub Pages;
