@@ -7,3 +7,4 @@ reference/
 .env
 .env.*
 !.env.example
+art/.blender-config/

@@ -26,11 +26,14 @@ See `DESIGN.md` for the design, story plan and code layout.
 
 ## Characters
 
-The cast is built in Blender by `art/build_characters.py` (edit the `CAST`
-table for looks). It saves `art/characters.blend` and exports
-`public/models/<name>.glb`, which the game loads:
+The cast is realistic MakeHuman characters built in Blender by
+`art/build_humans.py` (looks are in its `CAST` table): body and face shaping,
+period clothes fitted to each body, the game rig and Idle / Walk / Talk /
+LieBack clips. It saves `art/humans/<name>.blend` and exports
+`public/models/<name>.glb`. It needs the MPFB extension and MakeHuman asset
+packs; setup is described at the top of the script. See `CREDITS.md`.
 
 ```bash
-/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
-  --python art/build_characters.py -- --render preview.png
+BLENDER_USER_CONFIG=art/.blender-config /Applications/Blender.app/Contents/MacOS/Blender -b \
+  --python art/build_humans.py -- --only holmes
 ```

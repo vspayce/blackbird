@@ -1,0 +1,21 @@
+# Credits
+
+Characters are built with [MPFB](http://static.makehumancommunity.org/mpfb.html)
+(MakeHuman for Blender) from MakeHuman community assets, then dressed and
+animated by `art/build_humans.py`.
+
+## CC-BY assets (attribution required)
+
+| Asset | Author | Source | Licence |
+|---|---|---|---|
+| Moustache (`grinsegold_moustache`) | grinsegold | MakeHuman asset pack *bodyparts06* | CC-BY |
+| Bowler hat (`culturalibre_cl_bowler_hat`) | culturalibre | MakeHuman asset pack *hats03* | CC-BY |
+
+## CC0 assets
+
+MakeHuman base mesh, skins, eyes, eyebrows, eyelashes, hair and shoes
+(*makehuman_system_assets*, *skins02*, *eyebrows01*), and the suit
+(`toigo_male_suit_3`, Margaret Toigo, *suits01*).
+
+Frock coats, overcoats, the top hat, police helmet, belts, buttons, watch
+chain, cloth textures and all animation clips are made by the build script.

@@ -1,7 +1,12 @@
 # Builds the realistic cast for The Black Bird with MPFB (MakeHuman for Blender).
 #
-#   /Applications/Blender.app/Contents/MacOS/Blender -b --python art/build_humans.py -- \
-#       [--only holmes,watson] [--render out_dir]
+#   BLENDER_USER_CONFIG=art/.blender-config /Applications/Blender.app/Contents/MacOS/Blender -b \
+#       --python art/build_humans.py -- [--only holmes,watson] [--render out_dir]
+#
+# The separate config keeps MPFB enabled for these builds whatever your everyday
+# Blender preferences say. First time only:
+#   BLENDER_USER_CONFIG=art/.blender-config Blender -b --python-expr "import bpy; \
+#       bpy.ops.preferences.addon_enable(module='bl_ext.blender_org.mpfb'); bpy.ops.wm.save_userpref()"
 #
 # Needs the MPFB extension and these MakeHuman asset packs in its user data:
 # makehuman_system_assets, suits01, skins02, eyebrows01, bodyparts05 (CC0) and
@@ -49,51 +54,54 @@ def principled(m):
     return next(n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
 
 
-def tint(obj, hex, keep_texture=0.35, rough=None):
-    """Recolour a MakeHuman material: multiply its texture toward a flat colour (keeps the weave and folds)."""
+def hex01(h):
+    h = h.lstrip('#')
+    return [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+
+
+def bake_base_colour(obj, fn, rough=None):
+    """Recolour a material's base-colour texture by rewriting its pixels (sRGB, 0-1) with fn(rgb, lum) -> rgb,
+    and wire the texture straight to the shader, so the result survives glTF export."""
+    import numpy as np
     for m in obj.data.materials:
         nt, p = m.node_tree, principled(m)
-        link = p.inputs['Base Color'].links[0] if p.inputs['Base Color'].links else None
-        if link and keep_texture > 0:
-            # desaturate the texture, lift it toward white, multiply by the colour
-            bw = nt.nodes.new('ShaderNodeRGBToBW')
-            mix = nt.nodes.new('ShaderNodeMix'); mix.data_type = 'RGBA'; mix.blend_type = 'MULTIPLY'
-            mix.inputs['Factor'].default_value = 1.0
-            lift = nt.nodes.new('ShaderNodeMapRange')
-            lift.inputs['To Min'].default_value = 1 - keep_texture
-            nt.links.new(link.from_socket, bw.inputs[0]); nt.links.new(bw.outputs[0], lift.inputs[0])
-            nt.links.new(lift.outputs[0], mix.inputs['A'])
-            mix.inputs['B'].default_value = srgb(hex) + [1]
-            nt.links.new(mix.outputs['Result'], p.inputs['Base Color'])
-        else:
-            for l in list(p.inputs['Base Color'].links): nt.links.remove(l)
-            p.inputs['Base Color'].default_value = srgb(hex) + [1]
+        tex = next((n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.name.lower().startswith('diffuse')), None)
+        if tex is None or tex.image is None:
+            continue
+        src = tex.image
+        w, h = src.size
+        px = np.empty(w * h * 4, dtype=np.float32)
+        src.pixels.foreach_get(px)
+        px = px.reshape(-1, 4)
+        rgb = px[:, :3]
+        lum = rgb @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+        px[:, :3] = np.clip(fn(rgb, lum[:, None]), 0, 1)
+        out = bpy.data.images.new(f'{obj.name}_{src.name}'.replace('.', '_'), w, h, alpha=True)
+        out.pixels.foreach_set(px.ravel())
+        out.pack()
+        tex.image = out
+        nt.links.new(tex.outputs['Color'], p.inputs['Base Color'])
         if rough is not None:
             for l in list(p.inputs['Roughness'].links): nt.links.remove(l)
             p.inputs['Roughness'].default_value = rough
 
 
+def tint(obj, hex, keep_texture=0.35, rough=None):
+    """Recolour toward a flat colour, keeping keep_texture of the texture's light and shade (weave, folds)."""
+    c = hex01(hex)
+    bake_base_colour(obj, lambda rgb, lum: c * ((1 - keep_texture) + keep_texture * lum / max(0.2, float(lum.mean()))),
+                     rough)
+
+
 def split_tint(obj, dark_hex, light_hex, threshold=0.5, rough=0.85):
     """For texture atlases holding a suit and a shirt: dark texels become the cloth colour, light ones the shirt."""
-    for m in obj.data.materials:
-        nt, p = m.node_tree, principled(m)
-        link = p.inputs['Base Color'].links[0] if p.inputs['Base Color'].links else None
-        if not link: continue
-        src = link.from_socket
-        while src.node.type == 'MIX_RGB':  # MakeHuman puts a diffuseIntensity mix after the texture
-            src = src.node.inputs['Color1'].links[0].from_socket if src.node.inputs['Color1'].links else src; break
-        bw = nt.nodes.new('ShaderNodeRGBToBW')
-        ramp = nt.nodes.new('ShaderNodeValToRGB')
-        e = ramp.color_ramp.elements
-        e[0].position, e[0].color = threshold - 0.06, srgb(dark_hex) + [1]
-        e[1].position, e[1].color = threshold + 0.06, srgb(light_hex) + [1]
-        mix = nt.nodes.new('ShaderNodeMix'); mix.data_type = 'RGBA'; mix.blend_type = 'MULTIPLY'
-        mix.inputs['Factor'].default_value = 0.25
-        nt.links.new(link.from_socket, bw.inputs[0]); nt.links.new(bw.outputs[0], ramp.inputs[0])
-        nt.links.new(ramp.outputs['Color'], mix.inputs['A']); nt.links.new(link.from_socket, mix.inputs['B'])
-        nt.links.new(mix.outputs['Result'], p.inputs['Base Color'])
-        for l in list(p.inputs['Roughness'].links): nt.links.remove(l)
-        p.inputs['Roughness'].default_value = rough
+    import numpy as np
+    d, l = np.array(hex01(dark_hex)), np.array(hex01(light_hex))
+    def fn(rgb, lum):
+        t = np.clip((lum - (threshold - 0.06)) / 0.12, 0, 1)
+        t = t * t * (3 - 2 * t)
+        return (d * (1 - t) + l * t) * (0.75 + 0.25 * lum / max(0.2, float(lum.mean())))
+    bake_base_colour(obj, fn, rough)
 
 
 def slick_hair(hair, body, keep=0.3, gap=0.004):
@@ -562,8 +570,19 @@ def front_of(ob, x, z):
 
 # --- clips ----------------------------------------------------------------------
 
-def key_pose(rig, frame, rot):
-    """rot: {bone: (axis, angle)} in armature space; unspecified bones go back to rest."""
+def aim_posed(rig, bone, direction):
+    """Turn a bone, as currently posed (parents included), to point along an armature-space direction."""
+    bpy.context.view_layer.update()
+    pb = rig.pose.bones[bone]
+    cur = (pb.tail - pb.head).normalized()
+    R = cur.rotation_difference(Vector(direction).normalized()).to_matrix()
+    M = pb.matrix.to_3x3().normalized()
+    pb.rotation_quaternion = (pb.rotation_quaternion.to_matrix() @ M.inverted() @ R @ M).to_quaternion()
+
+
+def key_pose(rig, frame, rot, aims=None):
+    """rot: {bone: (axis, angle)} in armature space; aims: {bone: direction} applied after, parents first.
+    Unspecified bones go back to rest."""
     for pb in rig.pose.bones:
         pb.rotation_mode = 'QUATERNION'
         pb.rotation_quaternion = (1, 0, 0, 0)
@@ -576,6 +595,8 @@ def key_pose(rig, frame, rot):
         for axis, ang in (val if isinstance(val, list) else [val]):
             q = Quaternion(axis, ang) @ q
         pose_world(rig, b, q)
+    for b, d in (aims or {}).items():
+        aim_posed(rig, b, d)
     for pb in rig.pose.bones:
         pb.keyframe_insert('rotation_quaternion', frame=frame)
         pb.keyframe_insert('location', frame=frame)
@@ -586,8 +607,8 @@ def clip(rig, name, frames, poses, cyclic=True):
     act.use_fake_user = True
     rig.animation_data_create()
     rig.animation_data.action = act
-    for f, rot in poses:
-        key_pose(rig, f, rot)
+    for f, rot, *aims in poses:
+        key_pose(rig, f, rot, aims[0] if aims else None)
     act.frame_range = (0, frames)
     track = rig.animation_data.nla_tracks.new(); track.name = name
     track.strips.new(name, 0, act)
@@ -637,11 +658,15 @@ def make_clips(rig, gait=1.0):
 
     # LieBack: a single pose for the body in the alley (the game lays the figure down).
     clip(rig, 'LieBack', 1, [(0, {
-        'upperarm_l': (Y, -0.9), 'upperarm_r': (Y, 0.7), 'lowerarm_l': (X, -0.3), 'lowerarm_r': (X, -0.5),
-        'thigh_l': (Y, -0.08), 'thigh_r': (Y, 0.12), 'head': (Y, 0.35), 'calf_l': (X, 0.15),
+        'thigh_l': (Y, -0.06), 'thigh_r': (Y, 0.09), 'head': (Y, 0.35),
+    }, {  # arms flung out flat on the cobbles (the game lays him on his back, so 'down' here is along the ground)
+        'upperarm_l': (0.85, 0.12, -0.5), 'lowerarm_l': (0.95, 0.15, -0.1), 'hand_l': (0.95, 0.2, -0.05),
+        'upperarm_r': (-0.8, 0.12, -0.6), 'lowerarm_r': (-0.9, 0.2, -0.35), 'hand_r': (-0.85, 0.25, -0.3),
     }), (1, {
-        'upperarm_l': (Y, -0.9), 'upperarm_r': (Y, 0.7), 'lowerarm_l': (X, -0.3), 'lowerarm_r': (X, -0.5),
-        'thigh_l': (Y, -0.08), 'thigh_r': (Y, 0.12), 'head': (Y, 0.35), 'calf_l': (X, 0.15),
+        'thigh_l': (Y, -0.06), 'thigh_r': (Y, 0.09), 'head': (Y, 0.35),
+    }, {  # arms flung out flat on the cobbles (the game lays him on his back, so 'down' here is along the ground)
+        'upperarm_l': (0.85, 0.12, -0.5), 'lowerarm_l': (0.95, 0.15, -0.1), 'hand_l': (0.95, 0.2, -0.05),
+        'upperarm_r': (-0.8, 0.12, -0.6), 'lowerarm_r': (-0.9, 0.2, -0.35), 'hand_r': (-0.85, 0.25, -0.3),
     })])
     for pb in rig.pose.bones:
         pb.rotation_quaternion = (1, 0, 0, 0); pb.location = (0, 0, 0)
@@ -694,7 +719,7 @@ CAST = {
         macro=dict(age=0.42, muscle=0.55, weight=0.42, height=0.58, proportions=0.6),
         face={'head/head-oval': 0.3, 'nose/nose-point-up': 0.2, 'nose/nose-scale-horiz-decr': 0.1,
               'chin/chin-height-decr': 0.1, 'cheek/l-cheek-volume-incr': 0.2, 'cheek/r-cheek-volume-incr': 0.2},
-        hair=['short03'], hair_color='#7a3f1f', eyebrows='eyebrow006', eyes='lightblue',
+        hair=['short03'], hair_color='#7a3f1f', eyebrows='eyebrow006', eyes='lightblue', slick=True,
         clothes=['toigo_male_suit_3', 'shoes06'], suit='#1a2238', shirt='#1d263e', shoes='#0b0a0a',
         tunic=True, hat='helmet',
     ),
@@ -707,7 +732,7 @@ CAST = {
         hair=['short02'], hair_color='#4a3324', eyebrows='eyebrow003', eyes='brown',
         clothes=['toigo_male_suit_3', 'shoes06', 'grinsegold_moustache'],
         suit='#2b2925', shoes='#120f0d', moustache='#4a3324',
-        coat='buttoned', coat_color='#3d3a33',
+        coat='buttoned', coat_color='#3d3a33', hem=0.12,
     ),
 }
 
@@ -782,7 +807,8 @@ def build(name, c):
         def opening(z):
             if z > z_waist: return 0.03 if done_up else 0.1 + 0.7 * ((z - z_waist) / (z_neck - z_waist)) ** 1.5
             return 0.03 + 0.25 * ((z_waist - z) / (z_waist - z_knee)) ** 1.5
-        coat = long_coat('Coat', rig, sources, wool, z_neck, z_knee - 0.1, offset=0.016, flare=0.04, collar=done_up,
+        z_hem = z_knee + c.get('hem', -0.1)
+        coat = long_coat('Coat', rig, sources, wool, z_neck, z_hem, offset=0.016, flare=0.04, collar=done_up,
                          gap=opening)
         transfer_weights(coat, body, rig, skirt_weights(rig, bone_head(rig, 'thigh_l').z + 0.05, z_knee))
         zs = [z_neck - 0.06 - i * 0.1 for i in range(5 if done_up else 3)]
