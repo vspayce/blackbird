@@ -46,7 +46,7 @@ who once helped Holmes. Holmes and Watson are in the city as his guests.
 | I | **Burritt Alley** *(built)* | Archer shot; Thursby blamed | Explore, Focus, close-up, interrogation, notebook, Mind Palace, accusation, case rating |
 | II | **The Levantine** | Joel Cairo searches Holmes's rooms at gunpoint; gardenia | Character portrait; fight prediction |
 | III | **The St. Mark** | "Miss Wonderly" is Brigid O'Shaughnessy; one lie after another | Focus tells during speech; presenting evidence mid-conversation |
-| IV | **The Fat Man** | Kasper Gutman tells the falcon's history (Knights of Malta, 1539); the drugged whisky | Research at the **Mark Hopkins Institute of Art** *(location built as a preview)*; a drugged, broken-memory reconstruction |
+| IV | **The Fat Man** *(built)* | Kasper Gutman tells the falcon's history (Knights of Malta, 1539); the drugged whisky | Research at the **Mark Hopkins Institute of Art**; the drugged, broken-memory reconstruction; story events |
 | V | **The Gunsel** | Wilmer tails Holmes through the fog | Tailing and counter-tailing on foot through the city |
 | VI | **La Paloma** | The ship burns at the docks; Captain Jacobi brings in the parcel and dies | Reconstruction of the fire; timed search |
 | VII | **The Black Bird** | The bird is lead. Holmes hands Brigid to the police | Final Mind Palace; the moral choice |
@@ -56,14 +56,17 @@ Chapters IV–VI (the weight Jacobi carried, fresh enamel, the smell of hot
 lead at a Kearny Street foundry), they can call it a fake before Gutman
 scrapes it. That opens a different last scene.
 
-**Chapter IV and the Hopkins Institute.** In 1895 the Hopkins mansion on Nob
-Hill was the San Francisco Art Association's school and gallery, the Mark
-Hopkins Institute of Art. Holmes goes there to learn what a jewelled falcon
-from the Knights of Malta would be: a curator in the Director's Room, the
-school's archive in the old library, the Association's pictures in the
-gallery, and the city at his feet from the tower. Gutman, a collector, would
-know the place well. The scene is modelled and walkable; its people, clues
-and dialogue are not written yet.
+**Chapter IV and the Hopkins Institute** *(built, `src/cases/gutman.js`)*. In 1895 the Hopkins mansion on Nob
+Hill was the San Francisco Art Association's school and gallery. Gutman's note summons Holmes there at ten.
+Wilmer guards the porte-cochere (catch his lie with the warm carriage); Mr. Wren, the keeper (invented),
+says Gutman has read in the library all week and that a young lady waited for him in the studio (press him
+for her words: "I had it in Hong Kong"). The library, the Print Room's engravings of Malta and, under Focus,
+Brigid's blue glove on the model's throne fill in the rest. Holmes climbs the tower alone (Watson waits
+below); Gutman tells the falcon's history, lies about Brigid (prove it with the glove), and drugs the
+whisky. The **reconstruction** puts the evening back in order; Holmes wakes in the Print Room with Gutman
+and Wilmer gone, and finds the clamped telescope and the ringed shipping news. The question: *Where is the
+black bird?* Aboard *La Paloma*, due from Hong Kong on Thursday. The epilogue sets up Chapter V (Wilmer
+tailing them in the fog).
 
 ## Core loop
 Explore → observe (Focus) → gather clues and testimony → read people in
@@ -208,13 +211,16 @@ remember.
   lamps; the Hopkins Institute has six gas lights that move to the lamps
   nearest Holmes, because phones can't afford one per lamp. No shadow maps
   (blob shadows under people).
-- Each chapter is data (`src/cases/<chapter>.js`): `CLUES`, `DEDUCTIONS`,
-  `PEOPLE`, `ABSENT`, `SPOTS`, `CLOSEUP`, `TALK` (with `challenge`s), `READS`,
-  `CONCLUSION`. Engine code never names a specific clue. Keep that true.
-- Scenes: `main.js` picks a world from the URL. A world provides colliders,
-  `update()`, and optionally `groundAt()`, rooms and interactions.
-  `main.js` still carries Chapter I specifics; it becomes a proper per-chapter
-  structure when Chapter IV is written.
+- Each chapter is data (`src/cases/<chapter>.js`): `CHAPTER` (world, start, intro, opening, number, next),
+  `CLUES`, `DEDUCTIONS`, `PEOPLE` (pos, face, `leaves` after an event), `ABSENT`, `SPOTS` (`worldId`,
+  `needs`/`early`, `after`, `focus`), `CLOSEUP` (or null), `TALK` (with `challenge`s and `event`s),
+  `READS`, `EVENTS`, `CONCLUSION` and `objective(state)`. `src/cases/current.js` picks the chapter from the
+  URL (`?chapter=4`) and everything imports from it. Engine code never names a specific clue. Keep that true.
+- Story events (`EVENTS`): a dialogue topic can end in one. `reconstruct` breaks the scene into cards, has
+  the player order memory fragments, then wakes Holmes somewhere else; people with `leaves` are gone.
+- Scenes: the chapter names its world (`alley` or `hopkins`); `?scene=hopkins` is a free roam with no case.
+  A world provides colliders, `update()`, and optionally `groundAt()`, rooms and interactions.
+  The only Chapter I specific left in `main.js` is the body in the alley (`buildArcherScene`).
 
 ### Code layout
 ```
@@ -248,7 +254,8 @@ the traps we hit are in `docs/SETUP.md`.
 - **Sets**: Burritt Alley 53k triangles, 1.5 MB; the Hopkins Institute and its
   street 112k triangles, 3.5 MB, plus `hopkins.json` (colliders, rooms, lamps,
   interactions, ground levels).
-- Still to model. Cast: Brigid, Cairo, Gutman, Wilmer, Jacobi, Effie
+- Chapter IV adds Gutman, Wilmer and Wren.
+- Still to model. Cast: Brigid, Cairo, Jacobi, Effie
   (Archer's secretary). Places: Archer's office (Sutter St.), the Palace
   Hotel, the St. Mark, the Alexandria, the Embarcadero docks and *La Paloma*.
 
@@ -264,7 +271,7 @@ the traps we hit are in `docs/SETUP.md`.
    - motion-captured walks (the CMU library);
    - softer coat cloth;
    - an audio pass.
-6. Chapter IV at the Hopkins Institute (curator, archive, the falcon's history).
+6. ✅ Chapter IV at the Hopkins Institute (Gutman, Wilmer, Wren; the reconstruction).
 7. Chapter II with the character portrait and fight prediction.
 8. Focus tells and presenting evidence mid-speech (Ch. III).
 9. Reconstruction, tailing.

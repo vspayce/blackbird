@@ -10,6 +10,7 @@ animated by `art/build_humans.py`.
 |---|---|---|---|
 | Moustache (`grinsegold_moustache`) | grinsegold | MakeHuman asset pack *bodyparts06* | CC-BY |
 | Bowler hat (`culturalibre_cl_bowler_hat`) | culturalibre | MakeHuman asset pack *hats03* | CC-BY |
+| Flat cap (`elvs_male_flat_cap1`, Wilmer) | Elvaerwyn | MakeHuman asset pack *hats03* | CC-BY |
 
 ## CC0 assets
 

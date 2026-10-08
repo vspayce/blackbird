@@ -66,5 +66,6 @@ and `hopkins.json` (colliders, rooms, lamps, interactions). The night city
 below is generated in `src/world/hopkins.js`. The script's header separates
 what is historical from what is invented (notably the floor plan).
 
-Open it from the title screen's **Scenes** button, or with `?scene=hopkins`.
+Chapter IV, *The Fat Man*, is set there: `?chapter=4`, or the title screen's
+**Scenes** button. `?scene=hopkins` walks the house freely with no case;
 `?skip=1` starts Chapter I without the intro.

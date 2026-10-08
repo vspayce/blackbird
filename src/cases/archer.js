@@ -4,7 +4,13 @@
 
 export const CHAPTER = {
   id: 'archer',
+  number: 'I',
+  startClues: ['wonderly'],
   title: 'Chapter I · Burritt Alley',
+  next: 'Chapter II · The Levantine',
+  world: 'alley',
+  opening: 'Two in the morning, and Polhaus already here. Let us see what the fog has left us, Watson.',
+  summary: 'Miss Wonderly hired Archer yesterday to follow a man named Floyd Thursby. Holmes was in the room and said nothing. At two this morning Archer was shot dead in Burritt Alley.',
   intro: [
     'San Francisco. November, 1895.',
     'Sherlock Holmes and Dr. Watson have come west as guests of Miles Archer, a former Pinkerton man who once did Holmes a service in an affair of forged bonds.',
@@ -178,3 +184,18 @@ export const CONCLUSION = {
 
 // Clues and deductions share one namespace in the casebook and Mind Palace.
 for (const id of Object.keys(DEDUCTIONS)) console.assert(!CLUES[id], `id "${id}" is both a clue and a deduction`);
+
+export const EVENTS = {};
+
+// What to do next, for the objective line and the notebook.
+export function objective(s) {
+  if (s.solved) return 'Chapter complete';
+  if (!s.talked.includes('polhaus')) return 'Speak with Sergeant Polhaus';
+  if (!s.has('coat') && !s.has('wound')) return 'Examine Archer\'s body';
+  const hidden = ['heel', 'scent', 'webley'].filter(c => !s.has(c)).length;
+  if (hidden && s.clues.length < 7) return 'Search the alley. Use Focus to see what others miss';
+  if (s.canConclude) return 'Open the Mind Palace and name the killer';
+  if (s.deductions.length === 0) return 'Combine what you know in the Mind Palace';
+  const missing = CONCLUSION.needs.filter(d => !s.deductions.includes(d)).length;
+  return `Mind Palace: ${missing} key deduction${missing > 1 ? 's' : ''} still to make`;
+}

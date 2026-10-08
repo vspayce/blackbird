@@ -803,6 +803,40 @@ CAST = {
         suit='#2b2925', shoes='#120f0d', moustache='#4a3324',
         coat='buttoned', coat_color='#3d3a33', hem=0.12, hand_clearance=0.085,
     ),
+    # Chapter IV. Kasper Gutman, the Fat Man (as Hammett describes him): flabbily fat, bulbous pink cheeks,
+    # a black cutaway coat, black waistcoat, grey striped trousers.
+    'gutman': dict(
+        height=1.78,
+        macro=dict(age=0.72, muscle=0.25, weight=1.0, height=0.5, proportions=0.4),
+        face={'head/head-round': 0.8, 'head/head-fat-incr': 1.0, 'neck/neck-double-incr': 1.0,
+              'neck/measure-neck-circ-incr': 0.8, 'cheek/l-cheek-volume-incr': 0.8, 'cheek/r-cheek-volume-incr': 0.8,
+              'chin/chin-prominent-decr': 0.3, 'nose/nose-volume-incr': 0.3, 'eyebrows/eyebrows-trans-down': 0.2,
+              'torso/measure-waist-circ-incr': 1.0, 'torso/torso-scale-depth-incr': 0.8,
+              'hip/hip-scale-depth-incr': 0.6, 'hip/hip-scale-horiz-incr': 0.5},
+        hair=['short01'], hair_color='#3a3632', eyebrows='eyebrow001', eyes='brown', skin='middleage_caucasian_male',
+        clothes=['toigo_male_suit_3', 'shoes06'], suit='#121212', shirt='#e8e2d4', shoes='#0b0a0a',
+        coat='frock', coat_color='#151515', hand_clearance=0.16, chain=True,
+    ),
+    # Wilmer Cook, the gunsel: a small, young, pale man with a cap and an overcoat too good for him.
+    'wilmer': dict(
+        height=1.66,
+        macro=dict(age=0.3, muscle=0.5, weight=0.38, height=0.3, proportions=0.6),
+        face={'head/head-oval': 0.3, 'nose/nose-scale-horiz-decr': 0.2, 'mouth/mouth-scale-horiz-decr': 0.2,
+              'eyebrows/eyebrows-trans-down': 0.4, 'chin/chin-prominent-incr': 0.2},
+        hair=['short03'], hair_color='#4a3a28', eyebrows='eyebrow006', eyes='lightblue', slick=True,
+        clothes=['toigo_male_suit_3', 'shoes06', 'elvs_male_flat_cap1'], suit='#2a2a2c', shoes='#16120e',
+        coat='overcoat', coat_color='#2c2e30', hand_clearance=0.085, cap='#3a3632',
+    ),
+    # Mr. Tobias Wren, keeper of the Art Association's collection (invented): thin, elderly, ink on his fingers.
+    'wren': dict(
+        height=1.74,
+        macro=dict(age=0.88, muscle=0.3, weight=0.25, height=0.45, proportions=0.6),
+        face={'head/head-oval': 0.5, 'head/head-scale-horiz-decr': 0.2, 'nose/nose-scale-vert-incr': 0.3,
+              'nose/nose-point-down': 0.3, 'cheek/l-cheek-volume-decr': 0.4, 'cheek/r-cheek-volume-decr': 0.4},
+        hair=['short02'], hair_color='#b8b4ac', eyebrows='eyebrow003', eyes='grey', skin='old_caucasian_male',
+        clothes=['toigo_male_suit_3', 'shoes06', 'grinsegold_moustache'], suit='#2a2622', shoes='#120f0d',
+        moustache='#c8c4bc', hand_clearance=0.06,
+    ),
 }
 
 
@@ -834,6 +868,7 @@ def build(name, c):
         if 'shoes' in p.name: tint(p, c['shoes'], keep_texture=0.3, rough=0.35)
         if 'moustache' in p.name: tint(p, c.get('moustache', c['hair_color']), keep_texture=0.7, rough=0.6)
         if 'bowler' in p.name: tint(p, c.get('bowler', '#141414'), keep_texture=0.3, rough=0.5)
+        if 'cap' in p.name and c.get('cap'): tint(p, c['cap'], keep_texture=0.5, rough=0.9)
 
     sources = [body] + [p for p in parts.values() if 'suit' in p.name]
     if c.get('coat') == 'inverness':

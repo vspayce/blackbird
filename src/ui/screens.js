@@ -1,5 +1,5 @@
 // Full-screen cards: title, chapter intro, the accusation and the ending.
-import { CHAPTER, CONCLUSION } from '../cases/archer.js';
+import { CHAPTER, CONCLUSION } from '../cases/current.js';
 
 const el = () => document.getElementById('screen');
 
@@ -81,11 +81,54 @@ export function endCard({ rating, onTitle }) {
   const stars = '★'.repeat(rating.stars) + '☆'.repeat(5 - rating.stars);
   const s = show(`<div class="title end">
       <p class="pre">Case closed</p>
-      <h1>Chapter I</h1>
+      <h1>Chapter ${CHAPTER.number}</h1>
       <div class="rating"><div class="stars" aria-label="${rating.stars} of 5">${stars}</div>
         <table>${rating.rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table></div>
-      <p class="sub">To be continued · Chapter II · The Levantine</p>
+      <p class="sub">To be continued · ${CHAPTER.next}</p>
       <div class="btns"><button class="primary">Title screen</button></div>
     </div>`);
   s.querySelector('button').onclick = onTitle;
+}
+
+// A broken memory: fragments of a scene shown out of order. Tap them in the order they happened; a wrong one
+// shakes and Holmes complains. ev: { title, prompt, fragments (in the true order), wrong: [lines] }
+export function reconstruct(ev, onDone, sound) {
+  const order = ev.fragments.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {  // shuffle, but never leave it already solved
+    const j = (Math.random() * (i + 1)) | 0; [order[i], order[j]] = [order[j], order[i]];
+  }
+  if (order.every((v, i) => v === i)) order.reverse();
+  const s = show(`<div class="recon"><p class="pre">Reconstruction</p><h2></h2><p class="prompt"></p>
+      <ol class="placed"></ol><div class="frags"></div><p class="reply"></p></div>`);
+  s.querySelector('h2').textContent = ev.title;
+  s.querySelector('.prompt').textContent = ev.prompt;
+  const placed = s.querySelector('.placed'), frags = s.querySelector('.frags'), reply = s.querySelector('.reply');
+  let next = 0, w = 0;
+  for (const i of order) {
+    const b = document.createElement('button');
+    b.className = 'frag';
+    b.textContent = ev.fragments[i];
+    b.onclick = e => {
+      e.stopPropagation();
+      if (i !== next) {
+        b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+        reply.textContent = ev.wrong[w++ % ev.wrong.length];
+        sound?.wrong();
+        return;
+      }
+      const li = document.createElement('li');
+      li.textContent = ev.fragments[i];
+      placed.appendChild(li);
+      b.remove();
+      reply.textContent = '';
+      sound?.clue();
+      if (++next === ev.fragments.length) {
+        const go = document.createElement('button');
+        go.className = 'primary'; go.textContent = 'Wake up';
+        go.onclick = e2 => { e2.stopPropagation(); onDone(); };
+        frags.appendChild(go);
+      }
+    };
+    frags.appendChild(b);
+  }
 }

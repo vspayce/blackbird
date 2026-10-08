@@ -1,7 +1,7 @@
 // Conversations: a greeting, then a list of topics. Tap to advance a line.
 // Some answers can be challenged, L.A. Noire style: Believe, Press, or Prove a
 // lie with a fact from the casebook. Each challenge is called once.
-import { TALK, PEOPLE, CLUES, DEDUCTIONS } from '../cases/archer.js';
+import { TALK, PEOPLE, CLUES, DEDUCTIONS } from '../cases/current.js';
 
 const $ = id => document.getElementById(id);
 const CALLS = [['truth', 'Believe', 'Take it as the truth'], ['doubt', 'Press', 'Something is held back'], ['lie', 'Prove a lie', 'Show the fact that breaks it']];
@@ -18,7 +18,7 @@ export class Dialogue {
     this.el.addEventListener('click', e => { if (!e.target.closest('button')) this.next(); });
   }
 
-  // hooks: { state, onGive(id), onCall(right), onClose() }
+  // hooks: { state, onGive(id), onCall(right), onClose(), onEvent(name) }
   open(personId, hooks) {
     this.person = personId; this.hooks = hooks;
     this.el.classList.remove('hidden');
@@ -78,18 +78,20 @@ export class Dialogue {
     this.setTell('');
     TALK[this.person].topics.forEach((t, i) => {
       if (t.needs && !t.needs.every(n => state.has(n))) return;
+      if (t.event && state.events.includes(t.event)) return;
       const key = this.person + i;
       const called = t.challenge && key in state.calls;
       const done = this.asked.has(key) || (t.gives && state.has(t.gives)) || called;
       const b = this.button(t.q, done ? 'asked' : '', () => {
         this.asked.add(key);
         this.play([['Holmes', t.q], ...t.a], () => {
+          if (t.event) { const h = this.hooks; this.close(); h.onEvent?.(t.event); return; }  // the scene breaks off
           if (t.gives) this.hooks.onGive(t.gives);
           if (t.challenge && !(key in state.calls)) this.challenge(key, t.challenge);
           else this.menu();
         });
       });
-      if (t.challenge) b.classList.add(called ? (state.calls[key] ? 'called right' : 'called wrong') : 'contest');
+      if (t.challenge) b.classList.add(...(called ? ['called', state.calls[key] ? 'right' : 'wrong'] : ['contest']));
     });
     this.button('That will be all.', 'bye', () => this.close());
   }

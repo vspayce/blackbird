@@ -238,9 +238,9 @@ body[data-mode=talk] #pad-hint { display: none !important; }
 #palace .board { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
 #palace .plane { position: relative; margin: 0 auto; }
 #palace svg { position: absolute; inset: 0; pointer-events: none; }
-#palace svg path { fill: none; stroke: rgba(169,208,245,0.55); stroke-width: 2; filter: drop-shadow(0 0 3px rgba(169,208,245,0.6)); stroke-dasharray: 600; animation: draw 1s ease-out; }
+#palace svg path { fill: none; stroke: rgba(169,208,245,0.55); stroke-width: 2; filter: drop-shadow(0 0 3px rgba(169,208,245,0.6)); stroke-dasharray: 3000; animation: draw 1.4s ease-out; }
 #palace svg path.key { stroke: rgba(201,160,74,0.8); filter: drop-shadow(0 0 4px rgba(201,160,74,0.6)); }
-@keyframes draw { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
+@keyframes draw { from { stroke-dashoffset: 3000; } to { stroke-dashoffset: 0; } }
 #palace .node {
   position: absolute; width: 172px; height: 54px; padding: 4px 10px; border-radius: 3px; text-align: left;
   font-family: var(--serif); font-size: 14px; line-height: 1.15; display: flex; align-items: center;
@@ -313,3 +313,17 @@ body[data-mode=talk] #pad-hint { display: none !important; }
   #dialogue .choices button { font-size: 14px; padding: 7px 12px; min-height: 40px; }
   #say { font-size: 15px; }
 }
+
+/* ---------- reconstruction (a broken memory) ---------- */
+.recon { max-width: 760px; width: 100%; display: flex; flex-direction: column; align-items: center; max-height: 100%; overflow-y: auto; }
+.recon .pre { font-style: italic; color: var(--focus); margin: 0; font-size: 15px; letter-spacing: 1px; }
+.recon h2 { font-family: var(--caps); font-weight: normal; font-size: 30px; color: var(--paper); margin: 2px 0 4px; }
+.recon .prompt { font-style: italic; color: var(--paper-dim); margin: 0 0 10px; }
+.recon .placed { text-align: left; margin: 0 0 10px; padding-left: 26px; width: 100%; font-size: 16px; line-height: 1.35; color: var(--focus); }
+.recon .placed li { margin: 3px 0; animation: fadein .4s; }
+.recon .frags { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.recon .frag { min-width: 0; text-align: left; font-family: var(--serif); font-size: 16px; padding: 10px 14px; filter: blur(0.3px);
+  background: rgba(20,30,44,0.8); border: 1px solid rgba(169,208,245,0.35); transform: rotate(-0.4deg); }
+.recon .frag:nth-child(even) { transform: rotate(0.5deg); }
+.recon .frag.shake { animation: shake .35s; border-color: var(--blood); }
+.recon .reply { min-height: 1.3em; font-style: italic; color: #d9a090; margin: 8px 0 0; }

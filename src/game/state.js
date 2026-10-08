@@ -1,16 +1,16 @@
 // Investigation progress: what Holmes has found, heard and worked out.
 // Saved per browser; the game works the same if storage is unavailable.
-import { CLUES, DEDUCTIONS, CONCLUSION, TALK } from '../cases/archer.js';
+import { CHAPTER, CLUES, DEDUCTIONS, CONCLUSION, TALK, objective } from '../cases/current.js';
 
 const CHALLENGES = Object.values(TALK).flatMap(t => t.topics).filter(t => t.challenge).length;
 
-const KEY = 'blackbird.archer.v1';
+const KEY = `blackbird.${CHAPTER.id}.v1`;
 
 export class CaseState {
   constructor() { this.reset(); }
 
   reset() {
-    this.clues = ['wonderly'];
+    this.clues = [];
     this.deductions = [];
     this.talked = [];
     this.solved = false;
@@ -18,6 +18,8 @@ export class CaseState {
     this.reads = [];        // Focus readings noticed, 'person:index'
     this.misses = 0;        // Mind Palace combinations that came to nothing
     this.wrongAccusations = 0;
+    this.events = [];       // story events that have happened (Chapter IV: 'drugged')
+    for (const c of CHAPTER.startClues ?? []) if (!this.clues.includes(c)) this.clues.push(c);
   }
 
   load() {
@@ -32,13 +34,15 @@ export class CaseState {
       this.reads = s.reads ?? [];
       this.misses = s.misses ?? 0;
       this.wrongAccusations = s.wrongAccusations ?? 0;
+      this.events = s.events ?? [];
       return true;
     } catch { return false; }
   }
 
   save() {
     try { localStorage.setItem(KEY, JSON.stringify({ clues: this.clues, deductions: this.deductions, talked: this.talked, solved: this.solved,
-      calls: this.calls, reads: this.reads, misses: this.misses, wrongAccusations: this.wrongAccusations })); } catch { /* private mode */ }
+      calls: this.calls, reads: this.reads, misses: this.misses, wrongAccusations: this.wrongAccusations,
+      events: this.events })); } catch { /* private mode */ }
   }
 
   static hasSave() {
@@ -57,6 +61,10 @@ export class CaseState {
     if (this.deductions.includes(id)) return false;
     this.deductions.push(id); this.save();
     return true;
+  }
+
+  addEvent(e) {
+    if (!this.events.includes(e)) { this.events.push(e); this.save(); }
   }
 
   addRead(key) {
@@ -86,15 +94,6 @@ export class CaseState {
 
   get canConclude() { return CONCLUSION.needs.every(d => this.deductions.includes(d)); }
 
-  objective() {
-    if (this.solved) return 'Chapter complete';
-    if (!this.talked.includes('polhaus')) return 'Speak with Sergeant Polhaus';
-    if (!this.has('coat') && !this.has('wound')) return 'Examine Archer\'s body';
-    const hidden = ['heel', 'scent', 'webley'].filter(c => !this.has(c)).length;
-    if (hidden && this.clues.length < 7) return 'Search the alley. Use Focus to see what others miss';
-    if (this.canConclude) return 'Open the Mind Palace and name the killer';
-    if (this.deductions.length === 0) return 'Combine what you know in the Mind Palace';
-    const missing = CONCLUSION.needs.filter(d => !this.deductions.includes(d)).length;
-    return `Mind Palace: ${missing} key deduction${missing > 1 ? 's' : ''} still to make`;
-  }
+  objective() { return objective(this); }
+
 }

@@ -1,7 +1,7 @@
 // The Notebook (everything gathered, by tab) and the Mind Palace: a board of
 // facts where picking two that belong together draws a deduction, threaded
 // back to what it came from and on toward the question the chapter ends on.
-import { CHAPTER, CLUES, DEDUCTIONS, CONCLUSION, PEOPLE, ABSENT, READS, combine, wrongLine } from '../cases/archer.js';
+import { CHAPTER, CLUES, DEDUCTIONS, CONCLUSION, PEOPLE, ABSENT, READS, combine, wrongLine } from '../cases/current.js';
 
 const $ = id => document.getElementById(id);
 const KIND = { memory: 'Remembered', clue: 'Observed', testimony: 'Heard' };
@@ -38,7 +38,7 @@ export class Casebook {
     const keys = CONCLUSION.needs.filter(d => s.deductions.includes(d)).length;
     return `<p class="chapter">${esc(CHAPTER.title)}</p>
       <div class="objective-note"><small>Current line of inquiry</small><p>${esc(s.objective())}</p></div>
-      <p class="hand">${esc(CHAPTER.intro[1])} ${esc(CHAPTER.intro[2])}</p>
+      <p class="hand">${esc(CHAPTER.summary)}</p>
       <ul class="tally">
         <li><span>Clues</span><b>${s.clues.length} / ${Object.keys(CLUES).length}</b></li>
         <li><span>Deductions</span><b>${s.deductions.length} / ${Object.keys(DEDUCTIONS).length}</b></li>

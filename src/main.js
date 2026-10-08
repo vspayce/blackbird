@@ -12,18 +12,20 @@ import { CaseState } from './game/state.js';
 import { HUD } from './ui/hud.js';
 import { Dialogue } from './ui/dialogue.js';
 import { Casebook, MindPalace } from './ui/palace.js';
-import { titleScreen, cards, accuse, endCard, hideScreen } from './ui/screens.js';
-import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION } from './cases/archer.js';
+import { titleScreen, cards, accuse, endCard, hideScreen, reconstruct } from './ui/screens.js';
+import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION, EVENTS } from './cases/current.js';
 
 const HOLMES_LOOK = { model: 'holmes', coat: '#4a4740', trousers: '#2e2c2a', hat: 'deerstalker', hatColor: '#6b6250', cape: true, longCoat: true, hair: '#1d1712', height: 1.86 };
 const WALK = 2.0;           // m/s at full stick: a brisk walk
 const R = 0.3;              // body radius for collisions
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _ray = new THREE.Ray();
 
-// Which scene to play: ?scene=hopkins walks the Mark Hopkins Institute (a preview until its chapter is written);
-// ?skip=1 drops straight into the alley without the intro. The title screen's Scenes button sets these.
+// What to play. ?chapter=4 picks the chapter (src/cases/current.js), which names its world. ?scene=hopkins walks
+// the Institute freely with no case (a preview); ?skip=1 starts straight in, without the title or intro.
+// The title screen's Scenes button sets these.
 const params = new URLSearchParams(location.search);
-const SCENE = params.get('scene') === 'hopkins' ? 'hopkins' : 'alley';
+const PREVIEW = params.get('scene') === 'hopkins';
+const WORLD = PREVIEW ? 'hopkins' : CHAPTER.world;
 const SKIP = params.has('skip');
 
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
@@ -43,16 +45,22 @@ class Game {
     this.book = new Casebook();
     this.palace = new MindPalace();
     this.state = new CaseState();
-    if (SCENE === 'hopkins') {
+    if (WORLD === 'hopkins') {
       this.world = new Hopkins(this.scene);
       this.alley = null;
+      // the city below Nob Hill runs out to the far shore of the bay
+      this.camera.near = 0.08; this.camera.far = 6000; this.camera.updateProjectionMatrix();
     } else {
       this.world = this.alley = new Alley(this.scene);
     }
     this.colliders = this.world.colliders;
-    if (!this.alley) {  // the city below Nob Hill runs out to the far shore of the bay
-      this.camera.near = 0.08; this.camera.far = 6000; this.camera.updateProjectionMatrix();
-    }
+    // the case's places to look: worldId spots take their position, reach and label from the world
+    this.spots = PREVIEW ? [] : SPOTS.map(s => {
+      const w = s.worldId && this.world.interact?.find(i => i.id === s.worldId);
+      return w ? { pos: w.pos, r: w.r, label: w.label, ...s } : s;
+    });
+    // the world's own doings: in the preview all of them, in a chapter only travel (the tower stair)
+    this.inters = (this.world.interact ?? []).filter(i => PREVIEW || i.to);
 
     this.time = 0;
     this.focusOn = false; this.focus = 0; this.meter = 1;
@@ -84,29 +92,28 @@ class Game {
     };
 
     this.holmes = createFigure(HOLMES_LOOK);
-    this.holmes.object.position.set(CHAPTER.start.x, 0, CHAPTER.start.z);
     blob(this.holmes);
     this.scene.add(this.holmes.object);
 
     this.people = {};
-    if (!this.alley) {  // the Institute: just Watson at Holmes's side
-      const f = createFigure(PEOPLE.watson.look);
-      blob(f); this.scene.add(f.object);
-      this.people.watson = { id: 'watson', fig: f, def: PEOPLE.watson, speed: 0 };
-      return;
-    }
     for (const [id, p] of Object.entries(PEOPLE)) {
+      if (PREVIEW && id !== 'watson') continue;  // the preview: just Watson at Holmes's side
       const f = createFigure(p.look);
       blob(f);
       this.scene.add(f.object);
-      if (p.pos) {
-        f.object.position.set(p.pos[0], 0, p.pos[1]);
-        f.object.rotation.y = Math.atan2(p.face[0] - p.pos[0], p.face[1] - p.pos[1]);
+      if (p.pos) {  // [x, z] on flat ground, or [x, y, z]
+        const [x, y, z] = p.pos.length === 3 ? p.pos : [p.pos[0], 0, p.pos[1]];
+        f.object.position.set(x, y, z);
+        f.object.rotation.y = Math.atan2(p.face[0] - x, p.face[1] - z);
       }
-      else f.object.position.set(CHAPTER.start.x - 0.9, 0, CHAPTER.start.z + 1.2);
       this.people[id] = { id, fig: f, def: p, speed: 0 };
     }
+    this.anchors = {};  // things (not people) that Focus reads can sit on
+    if (CHAPTER.id === 'archer' && !PREVIEW) this.buildArcherScene();
+  }
 
+  // Chapter I's body in the alley (the one piece of set dressing that belongs to the case, not the world)
+  buildArcherScene() {
     // Miles Archer, on his back, head toward the fence
     const archer = createFigure({ model: 'archer', coat: '#3d3a33', trousers: '#2b2925', hair: '#4a3324', longCoat: true, buttons: true, height: 1.8 });
     archer.object.rotation.x = -Math.PI / 2;
@@ -120,11 +127,20 @@ class Game {
     const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.11, 14), new THREE.MeshStandardMaterial({ color: '#28241f', roughness: 0.9 }));
     hat.position.set(-0.5, 0.06, -18.2); hat.rotation.set(0.2, 0, 0.3);
     this.scene.add(hat);
-    this.archerHat = hat;
+    this.anchors.hat = { position: hat.position, height: 0.25 };
     // Holmes's pocket lamp, lit for the close-up
     this.pocketLamp = new THREE.PointLight('#ffd7a0', 0, 4, 1.5);
     this.pocketLamp.position.set(1.0, 1.0, -19.6);
     this.scene.add(this.pocketLamp);
+  }
+
+  // people still in the scene (some leave after a story event), other than Watson
+  present() {
+    return Object.values(this.people).filter(p => p.id !== 'watson' && !(p.def.leaves && this.state.events.includes(p.def.leaves)));
+  }
+
+  syncPresence() {
+    for (const p of Object.values(this.people)) p.fig.object.visible = p.id === 'watson' || this.present().includes(p);
   }
 
   // --- buttons and keys -----------------------------------------------------
@@ -161,16 +177,17 @@ class Game {
   // --- flow ---------------------------------------------------------------
   title() {
     this.setMode('title');
-    if (SCENE === 'hopkins' || SKIP) {  // arrived from the Scenes menu: straight in
+    if (PREVIEW || SKIP) {  // arrived from the Scenes menu: straight in
       this.state.load();
       return this.boot(false);
     }
     titleScreen({
       hasSave: CaseState.hasSave(),
       scenes: [
-        ['Chapter I from the start', '?'],
-        ['Burritt Alley, skip the intro', '?skip=1'],
-        ['The Mark Hopkins Institute (preview)', '?scene=hopkins'],
+        ['Chapter I · Burritt Alley', './'],
+        ['Chapter I, skip the intro', '?skip=1'],
+        ['Chapter IV · The Fat Man', '?chapter=4'],
+        ['The Mark Hopkins Institute (free roam)', '?scene=hopkins'],
       ],
       onNew: () => { this.state.reset(); this.state.save(); this.boot(true); },
       onContinue: () => { this.state.load(); this.boot(false); },
@@ -185,23 +202,50 @@ class Game {
   }
 
   begin() {
-    if (!this.alley) {
+    this.syncPresence();
+    const h = this.holmes.object, w = this.people.watson.fig.object;
+    const woke = Object.entries(EVENTS ?? {}).filter(([k, e]) => e.wake && this.state.events.includes(k)).pop();
+    if (woke && !PREVIEW) {  // continuing after a story event: pick up where it left Holmes
+      h.position.fromArray(woke[1].wake); w.position.set(woke[1].wake[0] + 0.9, woke[1].wake[1], woke[1].wake[2] + 0.6);
+      this.yaw = 0; this.pitch = 0.2;
+    } else if (WORLD === 'hopkins') {
       const s = this.world.data.spawn;
-      this.holmes.object.position.fromArray(s.pos);
-      this.holmes.object.rotation.y = s.yaw;
-      this.people.watson.fig.object.position.set(s.pos[0] - 1.1, s.pos[1], s.pos[2] - 0.7);
+      h.position.fromArray(s.pos);
+      h.rotation.y = s.yaw;
+      w.position.set(s.pos[0] - 1.1, s.pos[1], s.pos[2] - 0.7);
       this.yaw = s.yaw - Math.PI; this.pitch = -0.12;  // looking up at the house over the wall
-      this.camDistNow = this.camDist;
-      this.setMode('explore');
-      setTimeout(() => this.hud.say('There it is, Watson: the Hopkins house. Four years an art school, and still the grandest folly on Nob Hill.'), 600);
-      return;
+    } else {
+      h.position.set(CHAPTER.start.x, 0, CHAPTER.start.z);
+      h.rotation.y = Math.PI;
+      w.position.set(CHAPTER.start.x - 0.9, 0, CHAPTER.start.z + 1.2);
+      this.yaw = 0; this.pitch = 0.28;
     }
-    this.holmes.object.position.set(CHAPTER.start.x, 0, CHAPTER.start.z);
-    this.holmes.object.rotation.y = Math.PI;
-    this.people.watson.fig.object.position.set(CHAPTER.start.x - 0.9, 0, CHAPTER.start.z + 1.2);
-    this.yaw = 0; this.pitch = 0.28;
+    this.camDistNow = this.camDist;
     this.setMode('explore');
-    if (!this.state.talked.length) setTimeout(() => this.hud.say('Two in the morning, and Polhaus already here. Let us see what the fog has left us, Watson.'), 600);
+    const line = PREVIEW ? 'There it is, Watson: the Hopkins house. Four years an art school, and still the grandest folly on Nob Hill.'
+      : !this.state.talked.length && !woke ? CHAPTER.opening : null;
+    if (line) setTimeout(() => { if (this.mode === 'explore') this.hud.say(line); }, 600);
+  }
+
+  // A story event from a conversation (Chapter IV: the drugged whisky). 'reconstruct': the scene breaks off into
+  // cards, the player puts the fragments of memory in order, then Holmes wakes somewhere else.
+  runEvent(name) {
+    const ev = EVENTS[name];
+    if (!ev) return;
+    this.setMode('intro');
+    const wake = () => {
+      this.state.addEvent(name);
+      this.syncPresence();
+      const h = this.holmes.object, w = this.people.watson.fig.object;
+      h.position.fromArray(ev.wake); w.position.set(ev.wake[0] + 0.9, ev.wake[1], ev.wake[2] + 0.6);
+      this.yaw = 0; this.pitch = 0.2; this.camDistNow = 1.5;
+      cards(ev.after ?? [], () => {
+        hideScreen();
+        this.setMode('explore');
+        if (ev.gives) this.gain(ev.gives);
+      }, 'intro epilogue');
+    };
+    cards(ev.before ?? [], () => reconstruct(ev, wake, audio));
   }
 
   gain(id) {
@@ -221,32 +265,37 @@ class Game {
   }
 
   // nearest thing worth doing from where Holmes stands
+  // a spot can be used now: its event has happened, and (in Focus, if hidden) it can be seen
+  spotLive(s) {
+    if (s.after && !this.state.events.includes(s.after)) return false;
+    const found = s.clue && this.state.has(s.clue);
+    return !(s.focus && !found && this.focus < 0.3);
+  }
+
+  // on Holmes's floor: within reach of a marker at height y
+  sameFloor(y, p = this.holmes.object.position) { return Math.abs(y - p.y) < 3; }
+
   candidate() {
     const p = this.holmes.object.position;
-    if (!this.alley) {
-      let best = null, bd = Infinity;
-      for (const s of this.world.interact) {
-        const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
-        if (Math.abs(s.pos[1] - p.y) < 3 && d < s.r && d < bd) { best = { inter: s }; bd = d; }
-      }
-      return best;
-    }
     let best = null, bestScore = Infinity;
-    for (const s of SPOTS) {
-      const found = s.clue && this.state.has(s.clue);
-      if (s.focus && !found && this.focus < 0.3) continue;
+    for (const s of this.inters) {
+      const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
+      if (this.sameFloor(s.pos[1], p) && d < s.r && d / s.r < bestScore) { best = { inter: s }; bestScore = d / s.r; }
+    }
+    for (const s of this.spots) {
+      if (!this.spotLive(s) || !this.sameFloor(s.pos[1], p)) continue;
       const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
       if (d < s.r && d / s.r < bestScore) { best = { spot: s }; bestScore = d / s.r; }
     }
-    for (const id of ['polhaus', 'kelly']) {
-      if (!this.people[id]) continue;
-      const o = this.people[id].fig.object.position;
+    for (const person of this.present()) {
+      const o = person.fig.object.position;
+      if (Math.abs(o.y - p.y) > 1.5) continue;
       const d = Math.hypot(o.x - p.x, o.z - p.z);
-      if (d < 2 && d / 2 < bestScore) { best = { person: id }; bestScore = d / 2; }
+      if (d < 2 && d / 2 < bestScore) { best = { person: person.id }; bestScore = d / 2; }
     }
-    if (!best) {
+    if (!best && !PREVIEW) {
       const o = this.people.watson.fig.object.position;
-      if (Math.hypot(o.x - p.x, o.z - p.z) < 2.2) best = { person: 'watson' };
+      if (Math.hypot(o.x - p.x, o.z - p.z) < 2.2 && Math.abs(o.y - p.y) < 1.5) best = { person: 'watson' };
     }
     return best;
   }
@@ -257,6 +306,7 @@ class Game {
     if (target.person) return this.talk(target.person);
     const s = target.spot;
     if (s.closeup) return this.enterCloseup();
+    if (s.needs && !s.needs.every(n => this.state.has(n))) return this.hud.say(s.early ?? 'Nothing here that I can use yet.');
     if (s.clue) return this.gain(s.clue);
     if (s.say) this.hud.say(s.say);
   }
@@ -280,13 +330,21 @@ class Game {
       if (s.to === 'tower_room') this.towerFrom = s.id;  // come back down to the floor you climbed from
       const foot = this.towerFrom === 'tower2' ? [d.foot[0], 6, d.foot[2]] : d.foot;
       const to = s.to === 'tower_room' ? d.top : foot;
+      const waits = s.to === 'tower_room' && this.watsonWaits();
       this.holmes.object.position.fromArray(to);
-      this.people.watson.fig.object.position.set(to[0] + 0.8, to[1], to[2] + 0.6);
+      if (!waits) this.people.watson.fig.object.position.set(to[0] + 0.8, to[1], to[2] + 0.6);
       this.camDistNow = 1.5;
-      this.hud.say(s.to === 'tower_room' ? 'A hundred and twenty steps. Hopkins never climbed them; he died before the house was finished.' : 'Down again.');
+      this.hud.say(waits ? CHAPTER.watsonWaits.line
+        : s.to === 'tower_room' ? 'A hundred and twenty steps. Hopkins never climbed them; he died before the house was finished.' : 'Down again.');
       return;
     }
     this.hud.say(lines[s.id] ?? s.label);
+  }
+
+  // Chapter IV: Watson stays below while Holmes goes up to meet Gutman alone
+  watsonWaits() {
+    const w = CHAPTER.watsonWaits;
+    return !PREVIEW && w && !this.state.events.includes(w.until);
   }
 
   talk(id) {
@@ -305,6 +363,7 @@ class Game {
       onGive: c => this.gain(c),
       onCall: right => { right ? audio.deduce() : audio.wrong(); this.hud.toast(right ? 'right' : 'wrong', right ? 'You read them right' : 'You misjudged them'); },
       onClose: () => { this.people[id].fig.setTalking(false); this.setMode('explore'); },
+      onEvent: name => this.runEvent(name),
     });
   }
 
@@ -375,9 +434,9 @@ class Game {
         pos.x += opts[0][0]; pos.z += opts[0][1];
       }
     }
-    for (const id of ['polhaus', 'kelly']) {
-      if (!this.people[id]) continue;
-      const o = this.people[id].fig.object.position;
+    for (const person of this.present()) {
+      const o = person.fig.object.position;
+      if (Math.abs(o.y - pos.y) > 1.5) continue;
       const dx = pos.x - o.x, dz = pos.z - o.z, d = Math.hypot(dx, dz);
       if (d > 0 && d < 0.6) { pos.x = o.x + dx / d * 0.6; pos.z = o.z + dz / d * 0.6; }
     }
@@ -426,6 +485,10 @@ class Game {
     // at Holmes's left shoulder, half a pace back, out of the camera's way
     const tx = h.position.x + Math.sin(ry) * -0.4 + Math.cos(ry) * 1.0;
     const tz = h.position.z + Math.cos(ry) * -0.4 - Math.sin(ry) * 1.0;
+    if (this.watsonWaits() && h.position.y > CHAPTER.watsonWaits.above) {  // waiting below, as he was told
+      w.fig.animate(dt, 0, t);
+      return;
+    }
     // left behind on another floor (he doesn't take stairs on his own): catch up out of sight
     if (Math.abs(o.position.y - h.position.y) > 1.5 && Math.hypot(o.position.x - h.position.x, o.position.z - h.position.z) > 2.5) {
       o.position.set(tx, h.position.y, tz);
@@ -450,11 +513,15 @@ class Game {
   updateCamera(dt) {
     const h = this.holmes.object.position;
     const cam = this.camera;
-    if (this.mode === 'title' || this.mode === 'intro') {
-      // slow drift down Bush Street toward the alley
+    if ((this.mode === 'title' || this.mode === 'intro') && !this.state.events.length) {
       const a = this.time * 0.05;
-      cam.position.set(Math.sin(a) * 6, 2.2 + Math.sin(a * 0.7) * 0.4, 17 + Math.cos(a) * 2);
-      this.camLook = new THREE.Vector3(0, 1.6, -6);
+      if (WORLD === 'hopkins') {  // along California Street, looking up at the house
+        cam.position.set(Math.sin(a) * 14, 1.2 + Math.sin(a * 0.7) * 0.4, 44 + Math.cos(a) * 2);
+        this.camLook = new THREE.Vector3(0, 8, 8);
+      } else {  // slow drift down Bush Street toward the alley
+        cam.position.set(Math.sin(a) * 6, 2.2 + Math.sin(a * 0.7) * 0.4, 17 + Math.cos(a) * 2);
+        this.camLook = new THREE.Vector3(0, 1.6, -6);
+      }
       cam.lookAt(this.camLook);
       return;
     }
@@ -496,17 +563,17 @@ class Game {
     hud.begin();
     const p = this.holmes.object.position;
     const f = this.focus;
-    if (this.mode === 'explore' && !this.alley) {
-      for (const s of this.world.interact) {
-        if (Math.abs(s.pos[1] - p.y) > 3 || Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z) > 7) continue;
+    if (this.mode === 'explore') {
+      for (const s of this.inters) {
+        if (!this.sameFloor(s.pos[1], p) || Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z) > 7) continue;
         const sc = this.project(...s.pos);
         if (sc) hud.label('in:' + s.id, sc[0], sc[1], s.label, 'mark', () => {
           if (Math.hypot(s.pos[0] - this.holmes.object.position.x, s.pos[2] - this.holmes.object.position.z) < s.r * 1.3) this.useHopkins(s);
           else this.hud.say('Closer.');
         });
       }
-    } else if (this.mode === 'explore') {
-      for (const s of SPOTS) {
+      for (const s of this.spots) {
+        if (!this.spotLive(s) || !this.sameFloor(s.pos[1], p)) continue;
         const found = s.clue && this.state.has(s.clue);
         const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
         if (s.focus && !found) {
@@ -520,13 +587,14 @@ class Game {
           else this.hud.say('Too far to make it out. Closer.');
         });
       }
-      if (f > 0.3) {
-        const reads = [
-          ...['polhaus', 'kelly', 'watson'].map(id => [id, this.people[id].fig.object.position, 2.05]),
-          ['hat', this.archerHat.position, 0.25],
-        ];
+      if (f > 0.3 && !PREVIEW) {
+        const reads = Object.keys(READS).map(id => {
+          const person = this.people[id];
+          if (person) return person.fig.object.visible ? [id, person.fig.object.position, 2.05] : null;
+          return this.anchors[id] ? [id, this.anchors[id].position, this.anchors[id].height] : null;
+        }).filter(Boolean);
         for (const [id, o, hgt] of reads) {
-          if (Math.hypot(o.x - p.x, o.z - p.z) > 6) continue;
+          if (Math.hypot(o.x - p.x, o.z - p.z) > 6 || Math.abs(o.y - p.y) > 1.5) continue;
           const sc = this.project(o.x, o.y + hgt, o.z);
           if (!sc) continue;
           READS[id].forEach((txt, i) => {
@@ -619,7 +687,7 @@ class Game {
     if (this.mode === 'explore') this.updateHolmes(dt);
     this.holmes.animate(dt, this.mode === 'explore' ? this.holmesSpeed ?? 0 : 0, this.time);
     this.updateWatson(wdt, this.time);
-    for (const id of ['polhaus', 'kelly']) this.people[id]?.fig.animate(wdt, 0, this.time);
+    for (const person of this.present()) person.fig.animate(wdt, 0, this.time);
     this.world.update(wdt, this.time, this.focus, this.camera, this.holmes.object.position);
     if (this.pocketLamp) this.pocketLamp.intensity = damp(this.pocketLamp.intensity, this.mode === 'closeup' ? 3.5 : 0, 4, dt);
     this.updateCamera(dt);
@@ -627,7 +695,7 @@ class Game {
     if (this.mode === 'explore') {
       const c = this.candidate();
       this.hud.setAct(c ? (c.inter ? c.inter.label : c.person ? 'Talk to ' + PEOPLE[c.person].name : c.spot.label) : null);
-      this.hud.setObjective(this.alley ? this.state.objective() : this.world.roomAt(this.holmes.object.position));
+      this.hud.setObjective(PREVIEW ? this.world.roomAt(this.holmes.object.position) : this.state.objective());
     }
     this.hud.setFocus(this.focusOn, this.meter);
     this.updateLabels();
@@ -637,7 +705,7 @@ class Game {
   }
 }
 
-const assets = SCENE === 'hopkins'
-  ? [loadModels(['holmes', 'watson']), loadHopkins()]
-  : [loadModels(['holmes', 'watson', 'polhaus', 'kelly', 'archer']), loadSet()];
+const models = ['holmes', ...new Set(Object.values(PREVIEW ? { w: PEOPLE.watson } : PEOPLE).map(p => p.look.model).filter(Boolean))];
+if (CHAPTER.id === 'archer' && !PREVIEW) models.push('archer');
+const assets = [loadModels(models), WORLD === 'hopkins' ? loadHopkins() : loadSet()];
 Promise.all(assets).then(() => { window.game = new Game(); });
