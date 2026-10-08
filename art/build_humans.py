@@ -427,8 +427,8 @@ def skirt_weights(rig, z_top, z_hem):
     def f(co, w):
         if co.z > z_top: return None
         front = 1 / (1 + math.exp((co.y - y0) / 0.035))  # 1 at the front, 0 at the back
-        k = min(1, (z_top - co.z) / max(0.01, z_top - z_hem)) ** 1.3 * (0.08 + 0.5 * front)
-        side = 1 / (1 + math.exp(-co.x / 0.06))  # 0 = right, 1 = left
+        k = min(1, (z_top - co.z) / max(0.01, z_top - z_hem)) ** 1.3 * (0.02 + 0.5 * front)
+        side = 1 / (1 + math.exp(-co.x / 0.09))  # 0 = right, 1 = left
         return {'pelvis': 1 - k, 'thigh_l': k * side, 'thigh_r': k * (1 - side)}
     return f
 
@@ -649,8 +649,8 @@ def key_pose(rig, frame, rot, aims=None):
         pb.rotation_quaternion = (1, 0, 0, 0)
         pb.location = (0, 0, 0)
     for b, val in rot.items():
-        if b == 'pelvis_z':
-            rig.pose.bones['pelvis'].location = rig.data.bones['pelvis'].matrix_local.to_3x3().inverted() @ Vector((0, 0, val))
+        if b == 'pelvis_move':  # (sideways, up) in metres
+            rig.pose.bones['pelvis'].location = rig.data.bones['pelvis'].matrix_local.to_3x3().inverted() @ Vector((val[0], 0, val[1]))
             continue
         q = Quaternion()
         for axis, ang in (val if isinstance(val, list) else [val]):
@@ -695,16 +695,23 @@ def make_clips(rig, gait=1.0):
     for f in range(0, n + 1, 3):
         p = 2 * math.pi * f / n
         s = math.sin(p)
-        knee = lambda ph: max(0.0, math.sin(ph - 0.7)) ** 1.3 * 0.75 + 0.05
+        c = math.cos(p)  # +1 at mid-stance on the right leg (left swinging through), -1 on the left
+        knee = lambda ph: max(0.0, math.sin(ph - 0.7)) ** 1.3 * 0.55 + 0.05
         poses.append((f, {
-            'thigh_l': (X, -0.5 * s * gait), 'thigh_r': (X, 0.5 * s * gait),
+            # legs swing forward and back, and in toward the line the feet walk on
+            'thigh_l': [(X, -0.5 * s * gait), (Y, 0.045)], 'thigh_r': [(X, 0.5 * s * gait), (Y, -0.045)],
             'calf_l': (X, knee(p + math.pi) * gait), 'calf_r': (X, knee(p) * gait),
-            'foot_l': (X, -0.25 * max(0, math.sin(p + math.pi - 1.0))), 'foot_r': (X, -0.25 * max(0, math.sin(p - 1.0))),
-            'upperarm_l': (X, 0.22 * s * gait), 'upperarm_r': (X, -0.22 * s * gait),
-            'lowerarm_l': (X, -0.06 - 0.1 * max(0, -s)), 'lowerarm_r': (X, -0.06 - 0.1 * max(0, s)),
-            'pelvis': (Z, 0.08 * s * gait), 'spine_03': (Z, -0.1 * s * gait),
-            'spine_01': (X, -0.03),
-            'pelvis_z': 0.018 * abs(math.cos(p)) - 0.01,
+            'foot_l': (X, -0.2 * max(0, math.sin(p + math.pi - 1.0))), 'foot_r': (X, -0.2 * max(0, math.sin(p - 1.0))),
+            # the cane hand (left) swings less than the free one
+            'upperarm_l': (X, 0.14 * s * gait), 'upperarm_r': (X, -0.24 * s * gait),
+            'lowerarm_l': (X, -0.08), 'lowerarm_r': (X, -0.08 - 0.12 * max(0, s)),
+            # weight over the standing leg: the hips shift and the free side drops, the spine counters,
+            # the shoulders turn against the hips and the head stays level
+            'pelvis': [(Z, 0.08 * s * gait), (Y, 0.045 * c)],
+            'spine_01': [(X, -0.03), (Y, -0.035 * c)],
+            'spine_03': [(Z, -0.1 * s * gait), (Y, -0.015 * c)],
+            'head': [(Z, 0.04 * s), (Y, 0.01 * c)],
+            'pelvis_move': (-0.028 * c, 0.018 * abs(c) - 0.01),
         }))
     clip(rig, 'Walk', n, poses)
 
