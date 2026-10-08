@@ -17,7 +17,10 @@ export function loadModels(names) {
 
 function fromModel(src, o) {
   const root = src.clone(true);
-  const get = n => root.getObjectByName(n);
+  // pivots are named <Name>_<pivot>, e.g. Watson_leg_R
+  const pivots = {};
+  root.traverse(n => { const m = /^[A-Z][a-z]+_(\w+)$/.exec(n.name); if (m) pivots[m[1]] = n; });
+  const get = n => pivots[n];
   const body = get('body');
   body.scale.setScalar((o.height ?? 1.8) / 1.8);
   return withAnimation({ root, body, hips: get('hips'), torso: get('torso'), head: get('head'),

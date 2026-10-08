@@ -23,3 +23,14 @@ talk, eye button for Focus. On desktop: WASD, mouse drag, E, F, B (casebook),
 M (Mind Palace).
 
 See `DESIGN.md` for the design, story plan and code layout.
+
+## Characters
+
+The cast is built in Blender by `art/build_characters.py` (edit the `CAST`
+table for looks). It saves `art/characters.blend` and exports
+`public/models/<name>.glb`, which the game loads:
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
+  --python art/build_characters.py -- --render preview.png
+```

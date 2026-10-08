@@ -73,9 +73,9 @@ export const READS = {
 
 // People in the scene. pos is where they stand; Watson follows Holmes.
 export const PEOPLE = {
-  watson: { name: 'Dr. Watson', role: 'Friend and chronicler', note: 'Liked Archer more than he will say. Takes people at their word, which is why I keep him by me.', look: { coat: '#5a4632', trousers: '#3b3128', hat: 'bowler', hatColor: '#2a211a', moustache: '#6b4b2e', hair: '#6b4b2e', longCoat: true, height: 1.76 } },
-  polhaus: { name: 'Sgt. Polhaus', role: 'San Francisco Police', note: 'Slow-spoken, not slow-witted. Answers to Lieutenant Dundy, who likes his cases simple.', pos: [-1.5, -16.4], face: [0.5, -19.5], look: { coat: '#2f3238', trousers: '#25262a', hat: 'bowler', hatColor: '#1b1c20', moustache: '#3a2a1e', longCoat: true, height: 1.84 } },
-  kelly: { name: 'Patrolman Kelly', role: 'Beat constable, Bush Street', note: 'Young, keen and frightened of his sergeant. Found the body.', pos: [1.6, 6.2], face: [0, 12], look: { coat: '#1d2740', trousers: '#1d2740', hat: 'helmet', hatColor: '#1a2238', buttons: true, height: 1.8 } },
+  watson: { name: 'Dr. Watson', role: 'Friend and chronicler', note: 'Liked Archer more than he will say. Takes people at their word, which is why I keep him by me.', look: { model: 'watson', coat: '#5a4632', trousers: '#3b3128', hat: 'bowler', hatColor: '#2a211a', moustache: '#6b4b2e', hair: '#6b4b2e', longCoat: true, height: 1.76 } },
+  polhaus: { name: 'Sgt. Polhaus', role: 'San Francisco Police', note: 'Slow-spoken, not slow-witted. Answers to Lieutenant Dundy, who likes his cases simple.', pos: [-1.5, -16.4], face: [0.5, -19.5], look: { model: 'polhaus', coat: '#2f3238', trousers: '#25262a', hat: 'bowler', hatColor: '#1b1c20', moustache: '#3a2a1e', longCoat: true, height: 1.84 } },
+  kelly: { name: 'Patrolman Kelly', role: 'Beat constable, Bush Street', note: 'Young, keen and frightened of his sergeant. Found the body.', pos: [1.6, 6.2], face: [0, 12], look: { model: 'kelly', coat: '#1d2740', trousers: '#1d2740', hat: 'helmet', hatColor: '#1a2238', buttons: true, height: 1.8 } },
 };
 
 // People who are not in the alley but belong in the notebook. needs: a clue

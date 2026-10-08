@@ -84,7 +84,7 @@ class Game {
     }
 
     // Miles Archer, on his back, head toward the fence
-    const archer = createFigure({ coat: '#3d3a33', trousers: '#2b2925', hair: '#4a3324', longCoat: true, buttons: true, height: 1.8 });
+    const archer = createFigure({ model: 'archer', coat: '#3d3a33', trousers: '#2b2925', hair: '#4a3324', longCoat: true, buttons: true, height: 1.8 });
     archer.object.rotation.x = -Math.PI / 2;
     archer.object.position.set(0.5, 0.18, -19.0);
     archer.arms[0].rotation.z = -0.9; archer.arms[1].rotation.z = 0.7;
@@ -479,4 +479,4 @@ class Game {
   }
 }
 
-loadModels(['holmes']).then(() => { window.game = new Game(); });
+loadModels(['holmes', 'watson', 'polhaus', 'kelly', 'archer']).then(() => { window.game = new Game(); });
