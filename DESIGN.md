@@ -47,7 +47,7 @@ who once helped Holmes. Holmes and Watson are in the city as his guests.
 | II | **The Levantine** | Joel Cairo searches Holmes's rooms at gunpoint; gardenia | Character portrait; fight prediction |
 | III | **The St. Mark** | "Miss Wonderly" is Brigid O'Shaughnessy; one lie after another | Focus tells during speech; presenting evidence mid-conversation |
 | IV | **The Fat Man** *(built)* | Kasper Gutman tells the falcon's history (Knights of Malta, 1539); the drugged whisky | Research at the **Mark Hopkins Institute of Art**; the drugged, broken-memory reconstruction; story events |
-| V | **The Gunsel** | Wilmer tails Holmes through the fog | Tailing and counter-tailing on foot through the city |
+| V | **The Gunsel** *(built)* | Wilmer tails Holmes through the fog | Tailing and counter-tailing on foot through the city |
 | VI | **La Paloma** | The ship burns at the docks; Captain Jacobi brings in the parcel and dies | Reconstruction of the fire; timed search |
 | VII | **The Black Bird** | The bird is lead. Holmes hands Brigid to the police | Final Mind Palace; the moral choice |
 
@@ -67,6 +67,15 @@ whisky. The **reconstruction** puts the evening back in order; Holmes wakes in t
 and Wilmer gone, and finds the clamped telescope and the ringed shipping news. The question: *Where is the
 black bird?* Aboard *La Paloma*, due from Hong Kong on Thursday. The epilogue sets up Chapter V (Wilmer
 tailing them in the fog).
+
+**Chapter V on Kearny Street** *(built, `src/cases/gunsel.js`, world `src/world/kearny.js`)*. Wednesday, in
+fog. Wilmer shadows Holmes up Kearny from the Palace Hotel; Focus at the jeweller's window shows his
+reflection, and Kelly (now on Kearny) says the boy has watched the Palace since six and asked after a lady.
+Holmes steps into the hatter's doorway, lets him pass, and **tails him**: keep him in sight through the
+fog, and when he stops to look back be in cover (a doorway, a lamp post, a parked cab, or behind the Sutter
+Street cable car as it crosses) or far enough off. Spotted or lost, you start again from his last stop. He
+leads you to the Alexandria and leaves a note for Suite 12C: "No lady. Still looking." The question: why
+is Gutman having Holmes followed? To find Brigid. (`src/game/tail.js` runs both directions.)
 
 ## Core loop
 Explore → observe (Focus) → gather clues and testimony → read people in
@@ -195,8 +204,11 @@ remember.
 - Every tap target is at least 44 px. The thumb zones are the bottom-left
   stick and the bottom-right Focus and act buttons. Text sits bottom centre.
 - During a conversation, a tap anywhere advances the line.
-- A chapter is 15–30 min, saved automatically after every clue, deduction and
-  interrogation call (`localStorage`, which fails safely).
+- **Saving** (`src/game/saves.js`): an autosave every 20 s and after every clue, deduction and event, and
+  three manual slots, all with the chapter, the case and where Holmes stands. The pause menu (Menu button,
+  Esc, controller View) saves, loads and shows a **save code**, a text string that carries a save to another
+  device. Continue on the title resumes the latest save in whatever chapter; loading another chapter's save
+  reloads into that chapter. Saves live in the browser's storage, so they are per device unless moved by code.
 - Fonts: IM Fell English for narrative, Special Elite (typewriter) for Focus
   reads, IM Fell English SC for the shop signs in the sets.
 - The title screen's **Scenes** button jumps to any scene for testing
@@ -272,7 +284,8 @@ the traps we hit are in `docs/SETUP.md`.
    - softer coat cloth;
    - an audio pass.
 6. ✅ Chapter IV at the Hopkins Institute (Gutman, Wilmer, Wren; the reconstruction).
-7. Chapter II with the character portrait and fight prediction.
-8. Focus tells and presenting evidence mid-speech (Ch. III).
-9. Reconstruction, tailing.
-10. PWA install, localisation; a tvOS build (Unity) if it goes to the App Store.
+7. ✅ Chapter V on Kearny Street (tailing, the Sutter Street cable car); save slots, pause menu, save codes.
+8. Chapter II with the character portrait and fight prediction.
+9. Focus tells and presenting evidence mid-speech (Ch. III).
+10. Chapters VI (La Paloma) and VII (The Black Bird).
+11. PWA install, localisation; a tvOS build (Unity) if it goes to the App Store.

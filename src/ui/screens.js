@@ -1,5 +1,6 @@
 // Full-screen cards: title, chapter intro, the accusation and the ending.
 import { CHAPTER, CONCLUSION } from '../cases/current.js';
+import { describe } from '../game/saves.js';
 
 const el = () => document.getElementById('screen');
 
@@ -11,23 +12,91 @@ function show(html) {
 }
 export function hideScreen() { el().classList.remove('show'); }
 
-// scenes: [[label, query string]] for jumping straight to a scene while testing
-export function titleScreen({ hasSave, onNew, onContinue, scenes = [] }) {
+// The title. latest: the most recent save anywhere (Continue resumes it, in whatever chapter); onLoad opens the
+// slots; scenes: [[label, query string]] to jump straight to a scene.
+export function titleScreen({ latest, onNew, onContinue, onLoad, scenes = [] }) {
   const s = show(`<div class="title">
       <p class="pre">A Sherlock Holmes Mystery</p>
       <h1>The Black Bird</h1>
       <p class="sub">${CHAPTER.title}</p>
       <div class="btns">
-        ${hasSave ? '<button class="primary" data-a="continue">Continue</button>' : ''}
-        <button class="${hasSave ? '' : 'primary'}" data-a="new">${hasSave ? 'Start over' : 'Begin'}</button>
+        ${latest ? '<button class="primary" data-a="continue">Continue</button>' : ''}
+        <button class="${latest ? '' : 'primary'}" data-a="new">${latest ? 'New game' : 'Begin'}</button>
+        <button data-a="load">Load</button>
         ${scenes.length ? '<button data-a="scenes">Scenes</button>' : ''}
       </div>
+      ${latest ? `<p class="resume"></p>` : ''}
       <div class="scenes hidden">${scenes.map(([label, q]) => `<a href="./${q}">${label}</a>`).join('')}</div>
       <p class="credit">After Dashiell Hammett's <i>The Maltese Falcon</i> (1930) and Arthur Conan Doyle.</p>
     </div>`);
+  if (latest) s.querySelector('.resume').textContent = describe(latest) + (latest.objective ? ` · ${latest.objective}` : '');
   s.querySelector('[data-a=new]').onclick = onNew;
   s.querySelector('[data-a=continue]')?.addEventListener('click', onContinue);
+  s.querySelector('[data-a=load]').onclick = onLoad;
   s.querySelector('[data-a=scenes]')?.addEventListener('click', () => s.querySelector('.scenes').classList.toggle('hidden'));
+}
+
+// The pause menu
+export function pauseMenu({ objective, onResume, onSave, onLoad, onCode, onTitle }) {
+  const s = show(`<div class="menu"><p class="pre">Paused</p><h2>${CHAPTER.title}</h2><p class="obj"></p>
+      <div class="col">
+        <button class="primary" data-a="resume">Resume</button>
+        <button data-a="save">Save game</button>
+        <button data-a="load">Load game</button>
+        <button data-a="code">Save code</button>
+        <button data-a="title">Title screen</button>
+      </div>
+      <p class="note">The game also saves itself as you play.</p></div>`);
+  s.querySelector('.obj').textContent = objective;
+  const on = (a, f) => (s.querySelector(`[data-a=${a}]`).onclick = e => { e.stopPropagation(); f(); });
+  on('resume', onResume); on('save', onSave); on('load', onLoad); on('code', onCode); on('title', onTitle);
+}
+
+// Pick a save slot. mode 'save' writes (manual slots only), 'load' reads (any slot with a save, or a code).
+export function slotPicker({ mode, slots, onPick, onBack, onEnterCode }) {
+  const s = show(`<div class="menu"><p class="pre">${mode === 'save' ? 'Save game' : 'Load game'}</p>
+      <div class="col slots"></div>
+      <div class="col">${mode === 'load' ? '<button data-a="code">Enter a save code</button>' : ''}<button data-a="back">Back</button></div>
+      <p class="reply"></p></div>`);
+  const col = s.querySelector('.slots');
+  for (const { id, data } of slots) {
+    if (mode === 'save' && id === 'auto') continue;
+    const b = document.createElement('button');
+    b.className = 'slot';
+    b.innerHTML = '<b></b><small></small>';
+    b.querySelector('b').textContent = id === 'auto' ? 'Autosave' : `Slot ${id}`;
+    b.querySelector('small').textContent = describe(data);
+    b.disabled = mode === 'load' && !data;
+    b.onclick = e => {
+      e.stopPropagation();
+      if (mode === 'save' && data && !b.classList.contains('confirm')) {  // overwriting: ask once
+        b.classList.add('confirm'); b.querySelector('small').textContent = 'Tap again to overwrite'; return;
+      }
+      onPick(id);
+    };
+    col.appendChild(b);
+  }
+  s.querySelector('[data-a=back]').onclick = e => { e.stopPropagation(); onBack(); };
+  s.querySelector('[data-a=code]')?.addEventListener('click', e => { e.stopPropagation(); onEnterCode(); });
+  return msg => (s.querySelector('.reply').textContent = msg);
+}
+
+// Show a save code to copy, or take one to paste
+export function codeScreen({ code, onBack, onSubmit }) {
+  const s = show(`<div class="menu"><p class="pre">Save code</p>
+      <p class="note">${code ? 'Copy this and paste it into the game on another device (Load game, then Enter a save code).' : 'Paste a save code from another device.'}</p>
+      <textarea spellcheck="false"></textarea>
+      <div class="col">${code ? '<button class="primary" data-a="copy">Copy</button>' : '<button class="primary" data-a="go">Load</button>'}<button data-a="back">Back</button></div>
+      <p class="reply"></p></div>`);
+  const ta = s.querySelector('textarea'), reply = s.querySelector('.reply');
+  ta.addEventListener('click', e => e.stopPropagation());
+  if (code) { ta.value = code; ta.readOnly = true; }
+  s.querySelector('[data-a=back]').onclick = e => { e.stopPropagation(); onBack(); };
+  s.querySelector('[data-a=copy]')?.addEventListener('click', async e => {
+    e.stopPropagation(); ta.select();
+    try { await navigator.clipboard.writeText(code); reply.textContent = 'Copied.'; } catch { reply.textContent = 'Select the text and copy it.'; }
+  });
+  s.querySelector('[data-a=go]')?.addEventListener('click', e => { e.stopPropagation(); reply.textContent = onSubmit(ta.value) ?? ''; });
 }
 
 // one line at a time, tap to advance

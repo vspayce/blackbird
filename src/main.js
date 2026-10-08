@@ -7,13 +7,16 @@ import { fullscreen } from './core/fullscreen.js';
 import { Pad, BTN } from './core/gamepad.js';
 import { Alley, loadSet } from './world/alley.js';
 import { Hopkins, loadHopkins } from './world/hopkins.js';
+import { Kearny, loadKearny } from './world/kearny.js';
+import { Tail } from './game/tail.js';
 import { createFigure, loadModels } from './game/figure.js';
 import { CaseState } from './game/state.js';
 import { HUD } from './ui/hud.js';
 import { Dialogue } from './ui/dialogue.js';
 import { Casebook, MindPalace } from './ui/palace.js';
-import { titleScreen, cards, accuse, endCard, hideScreen, reconstruct } from './ui/screens.js';
-import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION, EVENTS } from './cases/current.js';
+import { titleScreen, cards, accuse, endCard, hideScreen, reconstruct, pauseMenu, slotPicker, codeScreen } from './ui/screens.js';
+import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION, EVENTS, TAIL, chapterNumber } from './cases/current.js';
+import { saves } from './game/saves.js';
 
 const HOLMES_LOOK = { model: 'holmes', coat: '#4a4740', trousers: '#2e2c2a', hat: 'deerstalker', hatColor: '#6b6250', cape: true, longCoat: true, hair: '#1d1712', height: 1.86 };
 const WALK = 2.0;           // m/s at full stick: a brisk walk
@@ -27,6 +30,7 @@ const params = new URLSearchParams(location.search);
 const PREVIEW = params.get('scene') === 'hopkins';
 const WORLD = PREVIEW ? 'hopkins' : CHAPTER.world;
 const SKIP = params.has('skip');
+const LOAD = params.get('load');  // a save to resume on arrival: a slot id, or 'pending' (a code, in sessionStorage)
 
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 
@@ -50,6 +54,10 @@ class Game {
       this.alley = null;
       // the city below Nob Hill runs out to the far shore of the bay
       this.camera.near = 0.08; this.camera.far = 6000; this.camera.updateProjectionMatrix();
+    } else if (WORLD === 'kearny') {
+      this.world = new Kearny(this.scene);
+      this.alley = null;
+      this.camera.far = 400; this.camera.updateProjectionMatrix();
     } else {
       this.world = this.alley = new Alley(this.scene);
     }
@@ -57,7 +65,10 @@ class Game {
     // the case's places to look: worldId spots take their position, reach and label from the world
     this.spots = PREVIEW ? [] : SPOTS.map(s => {
       const w = s.worldId && this.world.interact?.find(i => i.id === s.worldId);
-      return w ? { pos: w.pos, r: w.r, label: w.label, ...s } : s;
+      if (w) return { pos: w.pos, r: w.r, label: w.label, ...s };
+      const p = s.place && this.world.data?.places?.[s.place];  // a named place in the world (a shop door)
+      if (p) return { pos: [p[0], p[1] + 1.4, p[2]], r: 2.2, ...s };
+      return s;
     });
     // the world's own doings: in the preview all of them, in a chapter only travel (the tower stair)
     this.inters = (this.world.interact ?? []).filter(i => PREVIEW || i.to);
@@ -110,6 +121,7 @@ class Game {
     }
     this.anchors = {};  // things (not people) that Focus reads can sit on
     if (CHAPTER.id === 'archer' && !PREVIEW) this.buildArcherScene();
+    this.tail = TAIL && !PREVIEW ? new Tail(this, TAIL) : null;
   }
 
   // Chapter I's body in the alley (the one piece of set dressing that belongs to the case, not the world)
@@ -151,6 +163,7 @@ class Game {
     on('btn-book', () => this.openBook());
     on('btn-palace', () => this.openPalace());
     on('btn-back', () => this.leaveCloseup());
+    on('btn-menu', () => this.openMenu());
     addEventListener('keydown', e => {
       if (e.repeat) return;
       if (e.code === 'KeyF') this.toggleFocus();
@@ -158,6 +171,7 @@ class Game {
       else if (e.code === 'KeyB' || e.code === 'Tab') { e.preventDefault(); this.openBook(); }
       else if (e.code === 'KeyM') this.openPalace();
       else if (e.code === 'Escape' && this.mode === 'closeup') this.leaveCloseup();
+      else if (e.code === 'Escape' && this.mode === 'explore') this.openMenu();
     });
   }
 
@@ -177,21 +191,99 @@ class Game {
   // --- flow ---------------------------------------------------------------
   title() {
     this.setMode('title');
+    if (LOAD) {  // arrived to resume a save
+      const data = LOAD === 'pending' ? JSON.parse(sessionStorage.getItem('blackbird.pending') ?? 'null') : saves.read(LOAD);
+      history.replaceState(null, '', location.pathname + (chapterNumber > 1 ? `?chapter=${chapterNumber}` : ''));
+      if (data) return this.applySave(data);
+    }
     if (PREVIEW || SKIP) {  // arrived from the Scenes menu: straight in
       this.state.load();
       return this.boot(false);
     }
+    const latest = saves.latest();
     titleScreen({
-      hasSave: CaseState.hasSave(),
+      latest,
+      onContinue: () => this.applySave(latest),
+      onLoad: () => this.loadMenu(() => this.title()),
       scenes: [
         ['Chapter I · Burritt Alley', './'],
         ['Chapter I, skip the intro', '?skip=1'],
         ['Chapter IV · The Fat Man', '?chapter=4'],
+        ['Chapter V · The Gunsel', '?chapter=5'],
         ['The Mark Hopkins Institute (free roam)', '?scene=hopkins'],
       ],
       onNew: () => { this.state.reset(); this.state.save(); this.boot(true); },
-      onContinue: () => { this.state.load(); this.boot(false); },
     });
+  }
+
+  // --- saving -------------------------------------------------------------------------------
+  snapshot() {
+    const h = this.holmes.object, w = this.people.watson.fig.object;
+    // mid-tail, a save resumes at the start of the tail rather than somewhere Wilmer can't be
+    const midTail = this.tail && this.tail.phase === 'lead';
+    return {
+      v: 1, chapter: chapterNumber, title: CHAPTER.title, objective: this.state.objective(), savedAt: Date.now(),
+      state: this.state.toJSON(),
+      at: midTail || PREVIEW ? null : { pos: h.position.toArray(), rot: h.rotation.y, watson: w.position.toArray(), yaw: this.yaw },
+    };
+  }
+
+  autosave() {
+    if (PREVIEW || !['explore', 'closeup', 'talk', 'book', 'palace'].includes(this.mode)) return;
+    saves.write('auto', this.snapshot());
+    this.lastAutosave = this.time;
+  }
+
+  // Resume a save. Another chapter's save reloads the page into that chapter, which picks it up from there.
+  applySave(data, slotId = null) {
+    if (data.chapter !== chapterNumber) {
+      let id = slotId;
+      if (!id || !saves.read(id)) { sessionStorage.setItem('blackbird.pending', JSON.stringify(data)); id = 'pending'; }
+      location.href = `./?chapter=${data.chapter}&load=${id}`;
+      return;
+    }
+    this.state.reset();
+    this.state.fromJSON(data.state);
+    this.state.save();
+    this.resumeAt = data.at;
+    if (this.tail) this.tail.started = false;  // a tail in progress starts again from its beginning
+    hideScreen();
+    this.boot(false);
+  }
+
+  openMenu() {
+    if (!['explore', 'closeup'].includes(this.mode)) return;
+    const back = this.mode;
+    this.setMode('menu');
+    const resume = () => { hideScreen(); this.setMode(back); };
+    const menu = () => pauseMenu({
+      objective: this.state.objective(),
+      onResume: resume,
+      onSave: () => {
+        const say = slotPicker({
+          mode: 'save', slots: saves.list(), onBack: menu,
+          onPick: id => { saves.write(id, this.snapshot()); say(`Saved to slot ${id}.`); setTimeout(menu, 700); },
+        });
+      },
+      onLoad: () => this.loadMenu(menu),
+      onCode: () => codeScreen({ code: saves.encode(this.snapshot()), onBack: menu }),
+      onTitle: () => { this.autosave(); location.href = './' + (chapterNumber > 1 ? `?chapter=${chapterNumber}` : ''); },
+    });
+    menu();
+  }
+
+  loadMenu(back) {
+    const prev = this.mode;
+    this.setMode('menu');
+    const pick = () => slotPicker({
+      mode: 'load', slots: saves.list(), onBack: () => { this.setMode(prev); back(); },
+      onPick: id => this.applySave(saves.read(id), id),
+      onEnterCode: () => codeScreen({
+        onBack: pick,
+        onSubmit: text => { const d = saves.decode(text); if (!d) return 'That is not a save code.'; this.applySave(d); },
+      }),
+    });
+    pick();
   }
 
   boot(intro) {
@@ -204,16 +296,24 @@ class Game {
   begin() {
     this.syncPresence();
     const h = this.holmes.object, w = this.people.watson.fig.object;
+    if (this.resumeAt && !PREVIEW) {  // a loaded save: exactly where he stood
+      const r = this.resumeAt; this.resumeAt = null;
+      h.position.fromArray(r.pos); h.rotation.y = r.rot; w.position.fromArray(r.watson);
+      this.yaw = r.yaw; this.pitch = 0.2; this.camDistNow = this.camDist;
+      this.setMode('explore');
+      this.hud.say('Where were we, Watson?');
+      return;
+    }
     const woke = Object.entries(EVENTS ?? {}).filter(([k, e]) => e.wake && this.state.events.includes(k)).pop();
     if (woke && !PREVIEW) {  // continuing after a story event: pick up where it left Holmes
       h.position.fromArray(woke[1].wake); w.position.set(woke[1].wake[0] + 0.9, woke[1].wake[1], woke[1].wake[2] + 0.6);
       this.yaw = 0; this.pitch = 0.2;
-    } else if (WORLD === 'hopkins') {
+    } else if (WORLD === 'hopkins' || CHAPTER.start === 'spawn') {  // the world's own starting place
       const s = this.world.data.spawn;
       h.position.fromArray(s.pos);
       h.rotation.y = s.yaw;
       w.position.set(s.pos[0] - 1.1, s.pos[1], s.pos[2] - 0.7);
-      this.yaw = s.yaw - Math.PI; this.pitch = -0.12;  // looking up at the house over the wall
+      this.yaw = s.yaw - Math.PI; this.pitch = WORLD === 'hopkins' ? -0.12 : 0.2;  // (up at the house over the wall)
     } else {
       h.position.set(CHAPTER.start.x, 0, CHAPTER.start.z);
       h.rotation.y = Math.PI;
@@ -233,6 +333,20 @@ class Game {
     const ev = EVENTS[name];
     if (!ev) return;
     this.setMode('intro');
+    if (ev.type === 'cards') {  // a short scene told in cards, then Holmes is somewhere (wake) with a clue (gives)
+      cards(ev.lines, () => {
+        hideScreen();
+        this.state.addEvent(name);
+        this.syncPresence();
+        if (ev.wake) {
+          this.holmes.object.position.fromArray(ev.wake);
+          this.people.watson.fig.object.position.set(ev.wake[0] - 0.9, ev.wake[1], ev.wake[2] + 0.7);
+        }
+        this.setMode('explore');
+        if (ev.gives) this.gain(ev.gives);
+      });
+      return;
+    }
     const wake = () => {
       this.state.addEvent(name);
       this.syncPresence();
@@ -251,6 +365,7 @@ class Game {
   gain(id) {
     const c = CLUES[id];
     if (this.state.addClue(id)) {
+      setTimeout(() => this.autosave(), 0);
       audio.clue();
       this.hud.toast(c.kind === 'testimony' ? 'testimony' : 'clue', c.title);
     }
@@ -289,7 +404,7 @@ class Game {
     }
     for (const person of this.present()) {
       const o = person.fig.object.position;
-      if (Math.abs(o.y - p.y) > 1.5) continue;
+      if (Math.abs(o.y - p.y) > 1.5 || person.def.notalk) continue;
       const d = Math.hypot(o.x - p.x, o.z - p.z);
       if (d < 2 && d / 2 < bestScore) { best = { person: person.id }; bestScore = d / 2; }
     }
@@ -307,6 +422,7 @@ class Game {
     const s = target.spot;
     if (s.closeup) return this.enterCloseup();
     if (s.needs && !s.needs.every(n => this.state.has(n))) return this.hud.say(s.early ?? 'Nothing here that I can use yet.');
+    if (s.event && !this.state.events.includes(s.event)) return this.runEvent(s.event);
     if (s.clue) return this.gain(s.clue);
     if (s.say) this.hud.say(s.say);
   }
@@ -397,7 +513,7 @@ class Game {
     this.palace.open({
       state: this.state,
       sound: audio,
-      onDeduce: d => { this.state.addDeduction(d); audio.deduce(); },
+      onDeduce: d => { this.state.addDeduction(d); audio.deduce(); this.autosave(); },
       onMiss: () => { this.state.misses++; this.state.save(); audio.wrong(); },
       onClose: () => this.setMode('explore'),
       onConclude: () => this.conclude(),
@@ -412,6 +528,7 @@ class Game {
         audio.deduce();
         cards(CONCLUSION.epilogue, () => {
           this.state.solved = true; this.state.save();
+          saves.write('auto', { ...this.snapshot(), objective: 'Chapter complete' });
           endCard({ rating: this.state.rating(), onTitle: () => this.title() });
         }, 'intro epilogue');
       },
@@ -518,6 +635,9 @@ class Game {
       if (WORLD === 'hopkins') {  // along California Street, looking up at the house
         cam.position.set(Math.sin(a) * 14, 1.2 + Math.sin(a * 0.7) * 0.4, 44 + Math.cos(a) * 2);
         this.camLook = new THREE.Vector3(0, 8, 8);
+      } else if (WORLD === 'kearny') {  // up Kearny Street into the fog
+        cam.position.set(Math.sin(a) * 3, 2.4, 4 - (this.time * 0.6) % 60);
+        this.camLook = new THREE.Vector3(0, 3, cam.position.z - 30);
       } else {  // slow drift down Bush Street toward the alley
         cam.position.set(Math.sin(a) * 6, 2.2 + Math.sin(a * 0.7) * 0.4, 17 + Math.cos(a) * 2);
         this.camLook = new THREE.Vector3(0, 1.6, -6);
@@ -620,7 +740,7 @@ class Game {
   padRoots() {
     const $ = id => document.getElementById(id);
     switch (this.mode) {
-      case 'title': case 'intro': case 'accuse': return [$('screen')];
+      case 'title': case 'intro': case 'accuse': case 'menu': return [$('screen')];
       case 'talk': return [$('dialogue')];
       case 'book': return [$('book')];
       case 'palace': return [$('palace')];
@@ -657,9 +777,11 @@ class Game {
       else if (this.mode === 'palace') click($('palace').querySelector('.close'));
       else if (this.mode === 'talk') click(this.dialogue.choices.querySelector('.bye'));
       else if (this.mode === 'accuse') click($('screen').querySelector('.back'));
+      else if (this.mode === 'menu') click($('screen').querySelector('[data-a=resume], [data-a=back]'));
     }
     if (p.pressed(BTN.X) || p.pressed(BTN.R3)) this.toggleFocus();
-    if (p.pressed(BTN.Y) || p.pressed(BTN.VIEW)) this.mode === 'palace' ? click($('palace').querySelector('.close')) : this.openPalace();
+    if (p.pressed(BTN.Y)) this.mode === 'palace' ? click($('palace').querySelector('.close')) : this.openPalace();
+    if (p.pressed(BTN.VIEW)) this.mode === 'menu' ? click($('screen').querySelector('[data-a=resume], [data-a=back]')) : this.openMenu();
     if (p.pressed(BTN.MENU)) this.mode === 'book' ? click($('book').querySelector('.close')) : this.openBook();
     if (this.mode === 'book' && (p.pressed(BTN.LB) || p.pressed(BTN.RB))) {  // flip notebook tabs
       const tabs = [...$('book').querySelectorAll('.tabs button')];
@@ -687,7 +809,9 @@ class Game {
     if (this.mode === 'explore') this.updateHolmes(dt);
     this.holmes.animate(dt, this.mode === 'explore' ? this.holmesSpeed ?? 0 : 0, this.time);
     this.updateWatson(wdt, this.time);
-    for (const person of this.present()) person.fig.animate(wdt, 0, this.time);
+    if (this.mode === 'explore') this.tail?.update(dt);
+    if (this.mode === 'explore' && this.time - (this.lastAutosave ?? 0) > 20) this.autosave();
+    for (const person of this.present()) person.fig.animate(wdt, person.speed ?? 0, this.time);
     this.world.update(wdt, this.time, this.focus, this.camera, this.holmes.object.position);
     if (this.pocketLamp) this.pocketLamp.intensity = damp(this.pocketLamp.intensity, this.mode === 'closeup' ? 3.5 : 0, 4, dt);
     this.updateCamera(dt);
@@ -707,5 +831,5 @@ class Game {
 
 const models = ['holmes', ...new Set(Object.values(PREVIEW ? { w: PEOPLE.watson } : PEOPLE).map(p => p.look.model).filter(Boolean))];
 if (CHAPTER.id === 'archer' && !PREVIEW) models.push('archer');
-const assets = [loadModels(models), WORLD === 'hopkins' ? loadHopkins() : loadSet()];
+const assets = [loadModels(models), { hopkins: loadHopkins, kearny: loadKearny }[WORLD]?.() ?? loadSet()];
 Promise.all(assets).then(() => { window.game = new Game(); });

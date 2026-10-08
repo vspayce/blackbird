@@ -49,5 +49,7 @@ export const audio = {
   clue() { this.tone(880, 0.6, 0.06); this.tone(1320, 0.8, 0.04, 'sine', 0.08); },
   deduce() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 1.2, 0.05, 'triangle', i * 0.09)); },
   wrong() { this.tone(180, 0.4, 0.06, 'triangle'); },
+  // a cable car's bell: two quick strokes, bright and inharmonic like brass
+  bell() { for (const d of [0, 0.22]) { this.tone(1568, 1.1, 0.05, 'sine', d); this.tone(2350, 0.7, 0.025, 'sine', d); this.tone(3720, 0.3, 0.012, 'sine', d); } },
   focus(on) { this.tone(on ? 220 : 330, 0.5, 0.05, 'sine'); this.tone(on ? 330 : 220, 0.5, 0.04, 'sine', 0.12); },
 };

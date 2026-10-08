@@ -327,3 +327,32 @@ body[data-mode=talk] #pad-hint { display: none !important; }
 .recon .frag:nth-child(even) { transform: rotate(0.5deg); }
 .recon .frag.shake { animation: shake .35s; border-color: var(--blood); }
 .recon .reply { min-height: 1.3em; font-style: italic; color: #d9a090; margin: 8px 0 0; }
+
+/* ---------- tailing ---------- */
+#tail { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); min-width: 230px; text-align: center;
+  background: rgba(10,12,16,0.78); border-top: 2px solid var(--gold); padding: 6px 14px 8px; }
+#tail small { display: block; font-family: var(--caps); font-size: 11px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+#tail .state { font-style: italic; font-size: 15px; }
+#tail .bar { display: block; height: 4px; margin-top: 5px; background: rgba(255,255,255,0.12); }
+#tail .bar b { display: block; height: 100%; width: 0; background: var(--blood); transition: width .15s; }
+#tail.warn { border-top-color: var(--blood); }
+#tail.warn .state { color: #e8a090; }
+body[data-mode=talk] #tail { display: none; }
+
+/* ---------- pause menu, save slots, save codes ---------- */
+.menu { display: flex; flex-direction: column; align-items: center; max-width: 520px; width: 100%; max-height: 100%; overflow-y: auto; }
+.menu .pre { font-style: italic; color: var(--gold); margin: 0; font-size: 16px; }
+.menu h2 { font-family: var(--caps); font-weight: normal; margin: 2px 0 2px; font-size: 26px; }
+.menu .obj { font-style: italic; color: var(--paper-dim); margin: 0 0 12px; }
+.menu .col { display: flex; flex-direction: column; gap: 8px; width: min(360px, 100%); margin-top: 8px; }
+.menu .slot { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding: 8px 16px; }
+.menu .slot b { font-family: var(--caps); font-weight: normal; font-size: 17px; }
+.menu .slot small { font-family: var(--serif); font-size: 13px; opacity: 0.75; text-transform: none; }
+.menu .slot.confirm { border-color: var(--blood); }
+.menu .slot:disabled { opacity: 0.4; }
+.menu .note { font-size: 13px; color: var(--paper-dim); margin: 10px 0 0; }
+.menu .reply { min-height: 1.2em; font-style: italic; color: var(--gold); margin: 6px 0 0; }
+.menu textarea { width: min(420px, 100%); height: 96px; margin-top: 8px; background: rgba(13,18,24,0.85); color: var(--paper);
+  border: 1px solid var(--paper-dim); font-family: var(--type); font-size: 11px; padding: 8px; user-select: text; -webkit-user-select: text; }
+.title .resume { font-style: italic; font-size: 14px; color: var(--paper-dim); margin: 10px 0 0; }
+#top-btns #btn-menu span { display: none; }

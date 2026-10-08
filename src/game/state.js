@@ -23,26 +23,31 @@ export class CaseState {
   }
 
   load() {
-    try {
-      const s = JSON.parse(localStorage.getItem(KEY));
-      if (!s) return false;
-      this.clues = s.clues.filter(c => CLUES[c]);
-      this.deductions = s.deductions.filter(d => DEDUCTIONS[d]);
-      this.talked = s.talked ?? [];
-      this.solved = !!s.solved;
-      this.calls = s.calls ?? {};
-      this.reads = s.reads ?? [];
-      this.misses = s.misses ?? 0;
-      this.wrongAccusations = s.wrongAccusations ?? 0;
-      this.events = s.events ?? [];
-      return true;
-    } catch { return false; }
+    try { return this.fromJSON(JSON.parse(localStorage.getItem(KEY))); } catch { return false; }
+  }
+
+  // the case as plain data (for saves), and back
+  toJSON() {
+    return { clues: this.clues, deductions: this.deductions, talked: this.talked, solved: this.solved,
+      calls: this.calls, reads: this.reads, misses: this.misses, wrongAccusations: this.wrongAccusations, events: this.events };
+  }
+
+  fromJSON(s) {
+    if (!s) return false;
+    this.clues = s.clues.filter(c => CLUES[c]);
+    this.deductions = s.deductions.filter(d => DEDUCTIONS[d]);
+    this.talked = s.talked ?? [];
+    this.solved = !!s.solved;
+    this.calls = s.calls ?? {};
+    this.reads = s.reads ?? [];
+    this.misses = s.misses ?? 0;
+    this.wrongAccusations = s.wrongAccusations ?? 0;
+    this.events = s.events ?? [];
+    return true;
   }
 
   save() {
-    try { localStorage.setItem(KEY, JSON.stringify({ clues: this.clues, deductions: this.deductions, talked: this.talked, solved: this.solved,
-      calls: this.calls, reads: this.reads, misses: this.misses, wrongAccusations: this.wrongAccusations,
-      events: this.events })); } catch { /* private mode */ }
+    try { localStorage.setItem(KEY, JSON.stringify(this.toJSON())); } catch { /* private mode */ }
   }
 
   static hasSave() {

@@ -21,6 +21,16 @@ export class HUD {
     this.sayEl.addEventListener('click', () => this.hideSay());
   }
 
+  // the tailing panel (Chapter V): distance, what he is doing, how close he is to noticing
+  setTail(t) {
+    const el = this.tailEl ??= document.getElementById('tail');
+    el.classList.toggle('hidden', !t);
+    if (!t) return;
+    el.querySelector('.state').textContent = `${t.state} · ${Math.round(t.dist)} m`;
+    el.classList.toggle('warn', !!t.warn);
+    el.querySelector('.bar b').style.width = `${Math.round(t.suspicion * 100)}%`;
+  }
+
   show(on) { this.root.classList.toggle('hidden', !on); this.layer.classList.toggle('hidden', !on); }
 
   setObjective(text) {

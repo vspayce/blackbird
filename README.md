@@ -69,3 +69,16 @@ what is historical from what is invented (notably the floor plan).
 Chapter IV, *The Fat Man*, is set there: `?chapter=4`, or the title screen's
 **Scenes** button. `?scene=hopkins` walks the house freely with no case;
 `?skip=1` starts Chapter I without the intro.
+
+## Kearny Street (Chapter V)
+
+`art/build_city.py` builds Kearny Street from Market to Bush with Sutter Street
+running off either side and a cable car that runs along it
+(`public/models/kearny.glb` + `kearny.json`: colliders, lamps, cover points and
+named places). Chapter V: `?chapter=5`.
+
+## Saving
+
+The game autosaves as you play; the pause menu (Menu, Esc or the controller's
+View button) has three save slots, loading, and a save code to move a save
+between devices. Continue on the title resumes the latest save.
