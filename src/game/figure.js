@@ -1,22 +1,66 @@
-// Stylised low-poly people. Characters built in Blender (art/build_characters.py)
-// load from public/models/<name>.glb as a hierarchy of pivots (hips, torso,
-// head, leg_R/leg_L, arm_R/arm_L); anyone without a model is built from
-// primitives with the same pivots, so the animation code drives both.
+// People. Three kinds, best first:
+// - realistic skinned characters (art/build_humans.py) with Idle/Walk/Talk/LieBack clips;
+// - stylised rigid figures (art/build_characters.py), a hierarchy of pivots;
+// - primitives built here, with the same pivots, if no model loads.
+// All of them answer animate(dt, speed, t), setTalking(on) and lieBack().
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const models = new Map();
+const WALK_CLIP_SPEED = 1.25;  // m/s covered by one play of the Walk clip at timeScale 1
 
 // Load models before building figures; a missing model falls back to primitives.
 export function loadModels(names) {
-  const loader = new GLTFLoader();
+  const draco = new DRACOLoader().setDecoderPath('draco/');
+  const loader = new GLTFLoader().setDRACOLoader(draco);
   return Promise.all(names.map(n => loader.loadAsync(`models/${n}.glb`)
-    .then(g => models.set(n, g.scene))
+    .then(g => models.set(n, g))
     .catch(e => console.warn(`model ${n} not loaded, using primitives`, e))));
 }
 
-function fromModel(src, o) {
-  const root = src.clone(true);
+function fromSkinned(gltf) {
+  const root = SkeletonUtils.clone(gltf.scene);
+  root.traverse(m => {
+    if (!m.isMesh) return;
+    m.frustumCulled = false;  // skinned bounds don't follow the clips
+    const mat = m.material;
+    if (mat.transparent) {  // hair, brows and lashes: cut-out, not sorted blending
+      mat.transparent = false; mat.alphaTest = 0.45; mat.depthWrite = true;
+    }
+  });
+  const mixer = new THREE.AnimationMixer(root);
+  const act = {};
+  for (const clip of gltf.animations) act[clip.name] = mixer.clipAction(clip);
+  for (const a of Object.values(act)) { a.play(); a.setEffectiveWeight(0); }
+  act.Idle?.setEffectiveWeight(1);
+  if (act.Idle) act.Idle.time = Math.random() * act.Idle.getClip().duration;
+  let talking = false, talk = 0, lying = false;
+  return {
+    object: root,
+    animate(dt, speed) {
+      if (lying) return;
+      const walk = Math.min(1, speed / 0.9);
+      talk += ((talking ? 1 : 0) - talk) * Math.min(1, dt * 4);
+      act.Walk?.setEffectiveWeight(walk);
+      if (act.Walk) act.Walk.timeScale = Math.max(0.5, speed / WALK_CLIP_SPEED);
+      act.Talk?.setEffectiveWeight((1 - walk) * talk);
+      act.Idle?.setEffectiveWeight((1 - walk) * (1 - talk));
+      mixer.update(dt);
+    },
+    setTalking(on) { talking = on; },
+    lieBack() {
+      lying = true;
+      for (const a of Object.values(act)) a.setEffectiveWeight(a === act.LieBack ? 1 : 0);
+      mixer.update(0);
+    },
+  };
+}
+
+function fromModel(gltf, o) {
+  if (gltf.animations.length) return fromSkinned(gltf);
+  const root = gltf.scene.clone(true);
   // pivots are named <Name>_<pivot>, e.g. Watson_leg_R
   const pivots = {};
   root.traverse(n => { const m = /^[A-Z][a-z]+_(\w+)$/.exec(n.name); if (m) pivots[m[1]] = n; });
@@ -140,7 +184,7 @@ export function createFigure(o = {}) {
 }
 
 function withAnimation(parts) {
-  const { hips, legs, arms, torso } = parts;
+  const { hips, legs, arms, torso, head } = parts;
   const hipY = hips.position.y;
   let phase = Math.random() * 10;
 
@@ -158,5 +202,12 @@ function withAnimation(parts) {
     torso.rotation.x = 0.03 * walk + Math.sin(t * 1.3) * 0.012 * (1 - walk);
   }
 
-  return { ...parts, animate, object: parts.root };
+  // the body in the alley: on his back, arms flung out
+  function lieBack() {
+    arms[0].rotation.z = -0.9; arms[1].rotation.z = 0.7;
+    legs[0].rotation.z = -0.08; legs[1].rotation.z = 0.1;
+    head.rotation.z = 0.35;
+  }
+
+  return { ...parts, animate, lieBack, setTalking() {}, object: parts.root };
 }

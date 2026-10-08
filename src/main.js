@@ -87,9 +87,7 @@ class Game {
     const archer = createFigure({ model: 'archer', coat: '#3d3a33', trousers: '#2b2925', hair: '#4a3324', longCoat: true, buttons: true, height: 1.8 });
     archer.object.rotation.x = -Math.PI / 2;
     archer.object.position.set(0.5, 0.18, -19.0);
-    archer.arms[0].rotation.z = -0.9; archer.arms[1].rotation.z = 0.7;
-    archer.legs[0].rotation.z = -0.08; archer.legs[1].rotation.z = 0.1;
-    archer.head.rotation.z = 0.35;
+    archer.lieBack();
     this.scene.add(archer.object);
     this.colliders.push(new THREE.Box3(new THREE.Vector3(0.15, 0, -20.9), new THREE.Vector3(0.85, 0.5, -18.9)));
     const blood = new THREE.Mesh(new THREE.CircleGeometry(0.35, 18), new THREE.MeshStandardMaterial({ color: '#2a0505', roughness: 0.15 }));
@@ -219,11 +217,12 @@ class Game {
     this.yaw = this.holmes.object.rotation.y + Math.PI + 0.45;
     this.pitch = 0.12;
     this.hud.hideSay();
+    this.people[id].fig.setTalking(true);
     this.dialogue.open(id, {
       state: this.state,
       onGive: c => this.gain(c),
       onCall: right => { right ? audio.deduce() : audio.wrong(); this.hud.toast(right ? 'right' : 'wrong', right ? 'You read them right' : 'You misjudged them'); },
-      onClose: () => this.setMode('explore'),
+      onClose: () => { this.people[id].fig.setTalking(false); this.setMode('explore'); },
     });
   }
 
