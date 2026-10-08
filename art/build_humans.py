@@ -555,6 +555,45 @@ def watch_chain(rig, coat_front, mat, z):
     return ob
 
 
+def cane(rig, side, shaft, knob, ferrule):
+    """A gentleman's walking cane held in the fist of one hand, tip on the ground a little ahead."""
+    hand_tail = bone_tail(rig, f'hand_{side}')
+    knuckle = bone_head(rig, f'middle_01_{side}')
+    thumb = bone_head(rig, f'thumb_01_{side}')
+    palm = (hand_tail + knuckle) / 2
+    grip = Vector((palm.x, (palm.y + thumb.y) / 2 - 0.01, palm.z))  # inside the closed fingers
+    top = grip + Vector((0, 0, thumb.z - grip.z + 0.03))
+    tip = Vector((grip.x + (0.02 if side == 'l' else -0.02), grip.y - 0.16, 0.015))
+    axis = (top - tip).normalized()
+    me = bpy.data.meshes.new('Cane')
+    parts = []
+    def piece(name, mat, base, height, r0, r1, seg=10):
+        bm = bmesh.new()
+        rot = Vector((0, 0, 1)).rotation_difference(axis).to_matrix().to_4x4()
+        bmesh.ops.create_cone(bm, cap_ends=True, segments=seg, radius1=r0, radius2=r1, depth=height,
+                              matrix=Matrix.Translation(base + axis * height / 2) @ rot)
+        m = bpy.data.meshes.new(name); bm.to_mesh(m); bm.free()
+        o = bpy.data.objects.new(name, m); bpy.context.scene.collection.objects.link(o)
+        m.materials.append(mat)
+        for f in m.polygons: f.use_smooth = True
+        parts.append(o)
+    length = (top - tip).length
+    piece('CaneShaft', shaft, tip + axis * 0.04, length - 0.06, 0.0095, 0.012)
+    piece('CaneFerrule', ferrule, tip, 0.045, 0.008, 0.0095)
+    piece('CaneCollar', knob, top - axis * 0.035, 0.015, 0.0135, 0.0135)
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.019,
+                              matrix=Matrix.Translation(top) @ Matrix.Diagonal((1, 1, 0.85, 1)))
+    m = bpy.data.meshes.new('CaneKnob'); bm.to_mesh(m); bm.free()
+    o = bpy.data.objects.new('CaneKnob', m); bpy.context.scene.collection.objects.link(o)
+    m.materials.append(knob)
+    for f in m.polygons: f.use_smooth = True
+    parts.append(o)
+    for o in parts:
+        bind(o, rig, lambda co: {f'hand_{side}': 1.0})
+    return parts
+
+
 def police_helmet(rig, body, mat, brass):
     h, top = head_frame(rig, body)
     c = (0.0, h.y + 0.005)
@@ -711,6 +750,7 @@ CAST = {
         hair=['short02'], hair_color='#0d0b0a', eyebrows='eyebrow012', slick=True, eyes='grey',
         clothes=['toigo_male_suit_3', 'shoes06'], suit='#121212', shoes='#0b0a0a',
         coat='frock', coat_color='#141414', hat='tophat', chain=True, hand_clearance=0.07,
+        cane='l',  # in the left hand, so the right is free to gesture
     ),
     # Stocky army doctor in a light tweed suit, brown bowler, moustache.
     'watson': dict(
@@ -856,6 +896,9 @@ def build(name, c):
         bind(buckle, rig, lambda co: {'spine_01': 1.0})
     if c.get('hat') == 'helmet':
         police_helmet(rig, body, plain(f'{name}_felt', '#161d30', 0.8), plain(f'{name}_badge', '#c9a04a', 0.3, 1.0))
+    if c.get('cane'):
+        cane(rig, c['cane'], plain(f'{name}_ebony', '#0f0b09', 0.22), plain(f'{name}_silver', '#cfcfcf', 0.25, 1.0),
+             plain(f'{name}_brass', '#b08a3e', 0.35, 1.0))
     if c.get('hat') == 'tophat':
         top_hat(rig, body, plain(f'{name}_silk', '#0a0a0a', 0.3))
     if c.get('hat') == 'deerstalker':
