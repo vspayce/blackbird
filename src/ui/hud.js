@@ -82,6 +82,7 @@ export class HUD {
     el.className = 'wl ' + cls;
     const s = el.firstChild;
     if (s.textContent !== text) s.textContent = text;
+    if (onClick) el.setAttribute('aria-label', text);
     el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     el.style.display = '';
     this.used.add(key);
