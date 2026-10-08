@@ -23,6 +23,7 @@ talk, eye button for Focus. On desktop: WASD, mouse drag, E, F, B (casebook),
 M (Mind Palace).
 
 See `DESIGN.md` for the design, story plan and code layout.
+See `docs/SETUP.md` for the full setup: tools, Blender add-ons and asset packs, MCP, build scripts and testing.
 
 ## Characters
 
