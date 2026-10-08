@@ -181,14 +181,20 @@ def books_tex(name, size=512):
 
 
 def stained_tex(name, size=256):
+    """Leaded glass: diamond quarries in muted amber and pale glass, a border of deeper jewel colours."""
     rng = np.random.default_rng(23)
-    Hh = W = size
-    cells = (noise(Hh, W, 18, 3) * 6).astype(int)
-    pal = np.array([hexrgb(c) for c in ('#7a1a14', '#1a3a7a', '#c8a030', '#2a6a3a', '#5a2a6a', '#d8c890')])
-    col = pal[(cells + (np.mgrid[0:Hh, 0:W][0] // 32)) % len(pal)]
-    lead = np.abs(np.gradient(cells.astype(float))[0]) + np.abs(np.gradient(cells.astype(float))[1]) > 0
-    col[lead] = 0.05
-    return image(name, col)
+    H = W = size
+    yy, xx = np.mgrid[0:H, 0:W] / size
+    a, b = (xx + yy) * 8, (xx - yy) * 8
+    cell = (np.floor(a).astype(int) * 31 + np.floor(b).astype(int) * 17) % 97
+    lead = (np.abs(a - np.round(a)) < 0.06) | (np.abs(b - np.round(b)) < 0.06)
+    pale = np.array([hexrgb('#c8b88a'), hexrgb('#b8a46a'), hexrgb('#d0c49c'), hexrgb('#a89458')])
+    col = pale[cell % 4] * (0.8 + 0.3 * rng.random(97)[cell])[..., None]
+    jewel = np.array([hexrgb('#6a1a14'), hexrgb('#1e3a6a'), hexrgb('#2a5a34'), hexrgb('#8a6a1a')])
+    edge = np.minimum(np.minimum(xx, 1 - xx), np.minimum(yy, 1 - yy)) < 0.09
+    col[edge] = jewel[(cell % 4)][edge]
+    col[lead | (np.abs(np.minimum(np.minimum(xx, 1 - xx), np.minimum(yy, 1 - yy)) - 0.09) < 0.012)] = 0.04
+    return image(name, col * (0.85 + 0.2 * noise(H, W, 8, 2))[..., None])
 
 
 def hopkins_materials():
@@ -206,7 +212,7 @@ def hopkins_materials():
                         ('fresco_green', '#2a3a2a', '#9a8a5a', 'gothic')):
         material(nm, tex=fresco_tex(nm, g, i, motif=m), rough=0.9, scale=1.2)
     material('books', tex=books_tex('books'), rough=0.8, scale=2.0)
-    material('stained', '#000000', emit_tex=stained_tex('stained'), emit_strength=1.4, rough=0.3, scale=2.0)
+    material('stained', '#000000', emit_tex=stained_tex('stained'), emit_strength=1.1, rough=0.3, scale=1.2)
     material('gilt_frame', '#b08a3a', rough=0.35, metal=0.9)
     material('plaster', '#4a3a2c', rough=0.9)  # bare wall cores: dark, in case any shows
     material('plaster_cast', '#e6e0d2', rough=0.7)
@@ -1326,6 +1332,57 @@ def quoins(x, z, y0, y1, sx, sz):
         y += 0.42; k += 1
 
 
+def front_door():
+    """The front entrance under the porte-cochere: clustered colonettes, a moulded pointed arch with a stained-glass
+    tympanum, a stone threshold, and oak double doors standing open into the vestibule."""
+    F = frame((0, 0, 14 + (T + 0.1) / 2), (1, 0, 0), (0, 0, 1))  # the outer face of the front wall, door centred at u = 0
+    w, h = 2.4, 3.8                                             # the opening in the wall
+    for s in (-1, 1):
+        for k in range(3):  # stepped jambs of colonettes
+            u = s * (w / 2 + 0.12 + k * 0.16)
+            c = F @ Vector((u, 0.12, 0.08 + k * 0.1))
+            cyl('trim_cream', c, h - 0.5, 0.07, seg=8)
+            cyl('trim_cream', c, 0.18, 0.11, 0.1, seg=8)                       # base
+            cyl('trim_cream', c + Vector((0, h - 0.62, 0)), 0.2, 0.08, 0.12, seg=8)  # capital
+    # the moulded pointed arch: three orders springing from the capitals, a hood mould over them
+    spring = h - 0.42
+    for k in range(3):
+        half = w / 2 + 0.12 + k * 0.16
+        apex = spring + half * 1.1
+        for s in (-1, 1):
+            pts = [F @ Vector((s * half * math.cos(t), spring + (apex - spring) * math.sin(t), 0.1 + k * 0.1))
+                   for t in np.linspace(0, math.pi / 2, 7)]
+            tube('trim_cream', pts, 0.08, seg=6)
+    half = w / 2 + 0.6
+    apex = spring + half * 1.1
+    for s in (-1, 1):
+        pts = [F @ Vector((s * half * math.cos(t), spring + (apex - spring) * math.sin(t), 0.42)) for t in np.linspace(0, math.pi / 2, 8)]
+        tube('trim_cream', pts, 0.07, seg=4)
+        lbox(F, 'trim_cream', s * half - 0.12, s * half + 0.12, spring - 0.35, spring, 0, 0.45)  # label stops
+    # the tympanum: the wall above the door filled with stained glass inside the arch
+    bm = bm_for('stained')
+    rim = [F @ Vector((w / 2 * math.cos(t), spring + w / 2 * 1.1 * math.sin(t), 0.02)) for t in np.linspace(0, math.pi, 13)]
+    c = bm.verts.new(F @ Vector((0, spring + 0.1, 0.02)))
+    vs = [bm.verts.new(p) for p in rim]
+    for a_, b_ in zip(vs, vs[1:]):
+        bm.faces.new((c, b_, a_))
+    lbox(F, 'trim_cream', -w / 2, w / 2, spring, spring + 0.12, 0, 0.12)  # transom
+    # threshold
+    lbox(F, 'marble_white', -w / 2 - 0.2, w / 2 + 0.2, -0.05, 0.06, -0.45, 0.35)
+    # double doors folded back inside, against the vestibule's side walls
+    for s in (-1, 1):
+        lw = 1.15
+        x = s * (w / 2 - 0.06)
+        G = frame((x, 0, 14 - (T + 0.1) / 2), (0, 0, -1), (-s, 0, 0))
+        lbox(G, 'oak_panel', 0.02, lw, 0, spring - 0.05, 0, 0.07)
+        for (v0, v1) in ((0.25, 1.2), (1.45, spring - 0.35)):
+            lbox(G, 'oak_panel', 0.15, lw - 0.13, v0, v1, 0.07, 0.09)
+        sphere('brass', G @ Vector((lw - 0.12, 1.1, 0.1)), 0.035, 6)
+    # a lantern hanging in the doorway's arch
+    tube('iron', [F @ Vector((0, apex - 0.2, 0.6)), F @ Vector((0, apex - 0.7, 0.6))], 0.015)
+    cyl('lamp_glass', F @ Vector((0, apex - 1.05, 0.6)), 0.35, 0.09, 0.13, seg=6)
+
+
 def pinnacle(x, y, z, h=1.8, r=0.22):
     """A Gothic pinnacle: a square shaft with a gablet band and a spirelet with a finial."""
     cyl('ashlar', (x, y, z), h * 0.45, r, r, seg=4)
@@ -1448,8 +1505,12 @@ def castle_detail():
         r = (B - A).normalized(); n = outward(A, B, Vector((0, 0, 0)))
         F = frame(A, r, n) @ Matrix.Translation((0, 0, T / 2 + 0.05))
         L = (B - A).length
-        lbox(F, 'ashlar', -0.2, L + 0.2, -0.1, 0.7, 0, 0.18)
-        lbox(F, 'trim_cream', -0.2, L + 0.2, 0.7, 0.82, 0, 0.12)
+        # broken where the front door is (the front wall's door spans x = -1.2 .. 1.2)
+        runs = [(-0.2, 13.8), (16.2, L + 0.2)] if a == (-15, 14) and b == (15, 14) else [(-0.2, L + 0.2)]
+        for u0, u1 in runs:
+            lbox(F, 'ashlar', u0, u1, -0.1, 0.7, 0, 0.18)
+            lbox(F, 'trim_cream', u0, u1, 0.7, 0.82, 0, 0.12)
+    front_door()
     # quoins at the corners
     for (x, z, sx, sz) in ((-15.22, 14.22, -1, 1), (15.22, 14.22, 1, 1), (15.22, -14.22, 1, -1), (-15.22, -14.22, -1, -1)):
         quoins(x, z, 0.8, up1, sx, sz)
