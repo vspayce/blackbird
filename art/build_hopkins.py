@@ -260,6 +260,7 @@ def wall(a, b, y0, y1, openings=(), mat='plaster', thick=T, solid=True):
             if solid and ob > 0.5: collide_seg(F, t - w / 2, t + w / 2, y0, ob, thick)
         if ot < y1:
             lbox(F, mat, t - w / 2, t + w / 2, ot, y1, -thick / 2, thick / 2)
+            if solid: collide_seg(F, t - w / 2, t + w / 2, ot, y1, thick)  # above a door: solid to anyone up a stair
         u = t + w / 2
     return F, L
 
@@ -614,55 +615,62 @@ def build_hall(R):
     Art Association's pictures hung frame to frame."""
     x0, x1, z0, z1 = -7, 7, -6, 10
     gy = 6.0  # gallery floor
-    # gallery: a balcony round three sides on marble columns
-    for (a0, a1, b0, b1) in ((x0, x1, z1 - 2, z1), (x0, x0 + 2, z0, z1), (x1 - 2, x1, z0, z1)):
+    # The grand stair. One main flight rises from the hall to a landing against the back wall, then two side
+    # flights climb left and right to platforms at gallery level, where the gallery runs forward along both sides
+    # and across the front. Dimensions are walking dimensions: 0.3 m treads, 0.2 m risers, a 1.4 m landing.
+    zf, zl = -0.1, -4.6        # foot and head of the main flight
+    zb = -6.0                  # the back wall
+    xl, xs = 3.2, 5.6          # landing half-width; where each side flight arrives
+    n_main, n_side = 15, 8
+    rise = (gy / 2) / n_main
+    for k in range(n_main):    # the main flight, solid
+        wbox('marble_white', -2.2, 2.2, 0, (k + 1) * rise, zf - (k + 1) * 0.3, zf - k * 0.3)
+    wbox('marble_white', -xl, xl, gy / 2 - 0.3, gy / 2, zb, zl)       # the landing, a slab you can walk under
+    for s_ in (-1, 1):
+        for k in range(n_side):  # the side flights: steps on a stringer, open beneath
+            xa, xb = s_ * (xl + k * 0.3), s_ * (xl + (k + 1) * 0.3)
+            top = gy / 2 + (k + 1) * (gy / 2) / n_side
+            wbox('marble_white', min(xa, xb), max(xa, xb), top - 0.45, top, zb, zl)
+        wbox('oak_panel', min(s_ * xs, s_ * 7), max(s_ * xs, s_ * 7), gy - 0.4, gy, zb, zl)   # arrival platform
+        wbox('parquet', min(s_ * xs, s_ * 7), max(s_ * xs, s_ * 7), gy, gy + 0.02, zb, zl)
+    # gallery: forward along both sides from the platforms, and across the front, on marble columns
+    for (a0, a1, b0, b1) in ((x0, x1, z1 - 2, z1), (x0, x0 + 2, zl, z1), (x1 - 2, x1, zl, z1)):
         wbox('oak_panel', a0, a1, gy - 0.4, gy, b0, b1)
         wbox('parquet', a0, a1, gy, gy + 0.02, b0, b1)
     for x in (-5, -1.7, 1.7, 5):
         column(x, z1 - 2, 0, gy - 0.4)
     for z in (5.5, 1.5, -2.5):
         column(x0 + 2, z, 0, gy - 0.4); column(x1 - 2, z, 0, gy - 0.4)
-    # balustrade along the gallery edge
-    edge = [((x0 + 2, z1 - 2), (x1 - 2, z1 - 2)), ((x0 + 2, z0 + 1.6), (x0 + 2, z1 - 2)), ((x1 - 2, z1 - 2), (x1 - 2, z0 + 1.6))]
-    for a, b in edge:
-        A, B = Vector((a[0], gy, a[1])), Vector((b[0], gy, b[1]))
-        tube('oak_panel', [A + Vector((0, 1.0, 0)), B + Vector((0, 1.0, 0))], 0.05, 6)
-        n = int((B - A).length / 0.25)
-        for k in range(n + 1):
-            p = A.lerp(B, k / n)
-            cyl('oak_panel', p, 1.0, 0.03, seg=6, cap=False)
-    # the grand stair: rising from the back of the hall in one flight, then splitting to the gallery
-    steps = 18
-    for k in range(steps):
-        y = (k + 1) * (gy / 2) / steps
-        z = -1.0 - k * 0.3
-        wbox('marble_white', -2.2, 2.2, 0, y, z - 0.3, z)
-    wbox('marble_white', -3.2, 3.2, 0, gy / 2, -6.0, -6.4 + 1.0)  # landing against the back wall
-    for s in (-1, 1):
-        for k in range(steps):
-            y = gy / 2 + (k + 1) * (gy / 2) / steps
-            x = s * (3.2 + k * 0.2)
-            wbox('marble_white', min(x, x + s * 0.2), max(x, x + s * 0.2), y - 0.25, y, -6.0, -4.6)
-    for s in (-1, 1):  # newel posts and the handrail of the main flight
-        cyl('walnut_panel', (s * 2.3, 0, -0.8), 1.3, 0.1, 0.08, seg=8)
-        sphere('brass', (s * 2.3, 1.38, -0.8), 0.09, 8)
-        tube('walnut_panel', [(s * 2.3, 1.2, -0.8), (s * 2.3, gy / 2 + 1.0, -6.1)], 0.045)
-    # walkable: the main flight, the landing, the two side flights (the game follows these heights)
-    STAIRS.append([-2.2, 2.2, -5.4, -0.9, 'z', gy / 2, 0.0])
-    STAIRS.append([-3.2, 3.2, -6.0, -5.4, 'z', gy / 2, gy / 2])
-    STAIRS.append([-6.8, -3.2, -6.0, -4.6, 'x', gy, gy / 2])
-    STAIRS.append([3.2, 6.8, -6.0, -4.6, 'x', gy / 2, gy])
-    LEVELS.append(dict(y=gy, rects=[[x0, x1, z1 - 2, z1], [x0, x0 + 2, z0, z1], [x1 - 2, x1, z0, z1]]))
-    # balusters and the stair's sides as colliders: you can't step off, and from below you can't walk into it
+    # balustrades: the gallery's inner edge, and the open side of the landing and side flights (facing the hall)
+    def balustrade(pts):
+        for A, B in zip(pts, pts[1:]):
+            A, B = Vector(A), Vector(B)
+            tube('oak_panel', [A + Vector((0, 1.0, 0)), B + Vector((0, 1.0, 0))], 0.05, 6)
+            n = max(1, int((B - A).length / 0.25))
+            for k in range(n + 1):
+                cyl('oak_panel', A.lerp(B, k / n), 1.0, 0.03, seg=6, cap=False)
+    balustrade([(x0 + 2, gy, zl), (x0 + 2, gy, z1 - 2), (x1 - 2, gy, z1 - 2), (x1 - 2, gy, zl)])
     for s_ in (-1, 1):
-        collide(s_ * 2.2 - 0.1 * (s_ < 0), 0, -5.4, s_ * 2.2 + 0.1 * (s_ > 0) + 0.0001, gy / 2 + 1.0, -0.9)
-        collide(min(s_ * 2.3, s_ * 3.3), 0, -6.0, max(s_ * 2.3, s_ * 3.3), gy / 2 - 0.2, -5.3)   # the pocket under the landing
-        collide(min(s_ * 3.2, s_ * 6.8), gy / 2, -4.65, max(s_ * 3.2, s_ * 6.8), gy + 1.0, -4.5)  # side flight's open edge
-        collide(min(s_ * 2.2, s_ * 3.2), gy / 2, -5.45, max(s_ * 2.2, s_ * 3.2), gy / 2 + 1.0, -5.3)  # landing's front edge
-    # the gallery's balustrade (left open where the side flights arrive)
+        balustrade([(s_ * 2.2, gy / 2, zl), (s_ * xl, gy / 2, zl), (s_ * 5.0, gy / 2 + (5.0 - xl) / (xs - xl) * (gy / 2), zl)])
+        # newel posts and the handrail of the main flight
+        cyl('walnut_panel', (s_ * 2.3, 0, zf), 1.3, 0.1, 0.08, seg=8)
+        sphere('brass', (s_ * 2.3, 1.38, zf), 0.09, 8)
+        tube('walnut_panel', [(s_ * 2.3, 1.0, zf), (s_ * 2.3, gy / 2 + 1.0, zl)], 0.045)
+    # walkable: the game follows these heights
+    STAIRS.append([-2.2, 2.2, zl, zf, 'z', gy / 2, 0.0])
+    STAIRS.append([-xl, xl, zb, zl, 'z', gy / 2, gy / 2])
+    STAIRS.append([-xs, -xl, zb, zl, 'x', gy, gy / 2])
+    STAIRS.append([xl, xs, zb, zl, 'x', gy / 2, gy])
+    LEVELS.append(dict(y=gy, rects=[[x0, x1, z1 - 2, z1], [x0, x0 + 2, zl, z1], [x1 - 2, x1, zl, z1],
+                                    [-7, -xs, zb, zl], [xs, 7, zb, zl]]))
+    # colliders (each only counts at the height it stands at, so floors above and below don't interfere)
+    for s_ in (-1, 1):
+        collide(min(s_ * 2.2, s_ * 2.3), 0, zl, max(s_ * 2.2, s_ * 2.3), gy / 2 + 1.0, zf)          # main flight's sides
+        collide(min(s_ * xl, s_ * 7), 0, zb, max(s_ * xl, s_ * 7), gy / 2 - 0.2, zl)               # under the side flights
+        collide(min(s_ * 2.2, s_ * 5.0), gy / 2, zl - 0.05, max(s_ * 2.2, s_ * 5.0), gy + 1.5, zl + 0.1)  # open side, railed
     collide(x0 + 1.95, gy, z1 - 2.05, x1 - 1.95, gy + 1.0, z1 - 1.95)
     for xx in (x0 + 2, x1 - 2):
-        collide(xx - 0.05, gy, z0 + 1.6, xx + 0.05, gy + 1.0, z1 - 2)
+        collide(xx - 0.05, gy, zl, xx + 0.05, gy + 1.0, z1 - 2)
     # pictures: three tiers of them in gilt frames on the hall walls (the Association's collection)
     hang = [(frame((x0 + 0.18, 0, z1), (0, 0, -1), (1, 0, 0)), 16), (frame((x1 - 0.18, 0, z0), (0, 0, 1), (-1, 0, 0)), 16)]
     idx = 0
@@ -1275,12 +1283,12 @@ def ceiling_bosses(x0, x1, z0, z1, y, step=1.6):
 
 def stair_runner():
     """A red runner with brass rods up the main flight of the grand stair."""
-    gy = 6.0
-    for k in range(18):
-        y = (k + 1) * (gy / 2) / 18
-        z = -1.0 - k * 0.3
+    rise, zf = 3.0 / 15, -0.1
+    for k in range(15):
+        y = (k + 1) * rise
+        z = zf - k * 0.3
         wbox('velvet_red', -1.0, 1.0, y, y + 0.012, z - 0.3, z)
-        wbox('velvet_red', -1.0, 1.0, y - (gy / 2) / 18, y, z - 0.012, z)
+        wbox('velvet_red', -1.0, 1.0, y - rise, y, z - 0.012, z)
         tube('brass', [(-1.05, y + 0.012, z - 0.29), (1.05, y + 0.012, z - 0.29)], 0.01, 4)
 
 
@@ -2166,8 +2174,8 @@ def dress_rooms(R):
     for (x, z) in ((-6.2, 3.6), (6.2, 3.6), (-6.2, -4.4), (6.2, -4.4)):
         plinth(x, z, 1.0)
         amphora(x, 1.06, z, 0.9)
-    for x in (-2.9, 2.9):
-        fern(x, -0.5, 1.1)
+    for x in (-4.2, 4.2):  # either side of the stair's foot, clear of the way under the landing
+        fern(x, 0.6, 1.1)
     stair_runner()
     rug(-2.2, 2.2, 1.2, 7.8, 0)
     sofa(-4.0, 4.2, math.pi / 2, 'velvet_red', 2.0)
