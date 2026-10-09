@@ -427,3 +427,5 @@ body[data-mode=portrait] #btn-act, body[data-mode=portrait] #desk-hint, body[dat
 #dialogue .inline button.on { border-color: var(--focus); color: var(--focus); }
 #dialogue .inline button.present { border-color: #c9a04a; color: #f0d48a; animation: presentPulse 1.6s ease-in-out infinite; }
 @keyframes presentPulse { 50% { box-shadow: 0 0 12px rgba(240,212,138,0.45); } }
+body.pad #dialogue .inline .focus::after { content: ' (X)'; opacity: 0.6; }
+body.pad #dialogue .inline .present::after { content: ' (Y)'; opacity: 0.7; }

@@ -10,6 +10,7 @@ import { Hopkins, loadHopkins } from './world/hopkins.js';
 import { Kearny, loadKearny } from './world/kearny.js';
 import { Room, loadRoom } from './world/room.js';
 import { Tail } from './game/tail.js';
+import { CameraCollider } from './core/camcollide.js';
 import { createFigure, loadModels, makePistol } from './game/figure.js';
 import { CaseState } from './game/state.js';
 import { HUD } from './ui/hud.js';
@@ -24,7 +25,7 @@ import { NEXT_PLAYABLE, chapterNames } from './cases/current.js';
 const HOLMES_LOOK = { model: 'holmes', coat: '#4a4740', trousers: '#2e2c2a', hat: 'deerstalker', hatColor: '#6b6250', cape: true, longCoat: true, hair: '#1d1712', height: 1.86 };
 const WALK = 2.0;           // m/s at full stick: a brisk walk
 const R = 0.3;              // body radius for collisions
-const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _ray = new THREE.Ray();
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _ray = new THREE.Ray();
 
 // What to play. ?chapter=4 picks the chapter (src/cases/current.js), which names its world. ?scene=hopkins walks
 // the Institute freely with no case (a preview); ?skip=1 starts straight in, without the title or intro.
@@ -127,6 +128,7 @@ class Game {
     this.anchors = {};  // things (not people) that Focus reads can sit on
     if (CHAPTER.id === 'archer' && !PREVIEW) this.buildArcherScene();
     this.tail = TAIL && !PREVIEW ? new Tail(this, TAIL) : null;
+    this.camCol = new CameraCollider(this.scene, [this.holmes.object, ...Object.values(this.people).map(p => p.fig.object)]);
   }
 
   // Chapter I's body in the alley (the one piece of set dressing that belongs to the case, not the world)
@@ -691,6 +693,7 @@ class Game {
   updateHolmes(dt) {
     const look = this.input.takeLook(dt);
     this.yaw -= look.x * 0.006;
+    this.lookHeld = look.x || look.y ? 0.8 : Math.max(0, (this.lookHeld ?? 0) - dt);  // the player is aiming the camera
     this.pitch = Math.max(-0.15, Math.min(0.95, this.pitch + look.y * 0.004));
 
     const m = this.input.moveVector();
@@ -767,6 +770,12 @@ class Game {
       cam.lookAt(this.camLook);
       return;
     }
+    if (this.fixedCam && ['portrait', 'fight', 'intro'].includes(this.mode) || this.mode === 'closeup') {
+      // a set-up shot: give back anyone the follow camera hid for being in the lens
+      for (const p of [this.holmes, ...Object.values(this.people)]) {
+        if (p.camHidden) { p.camHidden = false; if (p !== this.holmes || this.mode !== 'closeup') (p.fig ?? p).object.visible = true; }
+      }
+    }
     if (this.fixedCam && ['portrait', 'fight', 'intro'].includes(this.mode)) {
       const c = this.fixedCam;
       c.t = Math.min(1, c.t + dt * 1.6);
@@ -791,14 +800,42 @@ class Game {
     const cp = Math.cos(this.pitch);
     const dir = _v.set(Math.sin(this.yaw) * cp, Math.sin(this.pitch), Math.cos(this.yaw) * cp);
     let dist = this.camDist;
-    _ray.set(target, dir);
-    const hit = new THREE.Vector3();
-    for (const b of this.colliders) {
-      if (_ray.intersectBox(b, hit)) dist = Math.min(dist, Math.max(0.6, hit.distanceTo(target) - 0.25));
+    // (the walking colliders are boxes round furniture and walls; the camera tests the real geometry instead)
+    dist = Math.max(0.06, this.camCol.limit(target, dir, dist));  // the real walls, frames and furniture; at worst, his eyes
+    // backed into a corner: pick the most open direction once, then swing round to it (the player's own
+    // camera input cancels the swing)
+    if (this.lookHeld > 0 || this.mode !== 'explore') this.steerTo = null;
+    else if (this.steerTo == null && dist < Math.min(1.2, this.camDist * 0.6)) {
+      let best = null, room = dist + 0.5;
+      for (let k = 1; k < 16; k++) {
+        const dy = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * Math.PI / 8, y = this.yaw + dy;
+        const r = this.camCol.limit(target, _u.set(Math.sin(y) * cp, Math.sin(this.pitch), Math.cos(y) * cp), this.camDist);
+        if (r > room) { room = r; best = y; }
+      }
+      this.steerTo = best;
+    }
+    if (this.steerTo != null) {
+      const d = Math.atan2(Math.sin(this.steerTo - this.yaw), Math.cos(this.steerTo - this.yaw));
+      this.yaw += d * Math.min(1, dt * 4);
+      if (Math.abs(d) < 0.03) this.steerTo = null;
     }
     if (target.y + dir.y * dist < h.y + 0.25) dist = (h.y + 0.25 - target.y) / dir.y;
-    this.camDistNow = damp(this.camDistNow ?? dist, dist, dist < (this.camDistNow ?? dist) ? 30 : 4, dt);
+    // pull in at once when something comes between (never a frame inside a wall), ease back out
+    const now = this.camDistNow ?? dist;
+    this.camDistNow = dist < now ? dist : damp(now, dist, 4, dt);
     cam.position.copy(target).addScaledVector(dir, this.camDistNow);
+    // right up against a wall the camera is at Holmes's shoulder: hide him rather than look through his hat,
+    // and anyone else who walks into the lens
+    // only ever un-hide what this hid: people who have left the scene stay gone
+    const lens = (o, near, flag) => {
+      if (near && o.visible && !flag.camHidden) { flag.camHidden = true; o.visible = false; }
+      else if (!near && flag.camHidden) { flag.camHidden = false; o.visible = true; }
+    };
+    lens(this.holmes.object, this.camDistNow < 0.6, this.holmes);
+    for (const p of Object.values(this.people)) {
+      const o = p.fig.object.position;
+      lens(p.fig.object, Math.hypot(o.x - cam.position.x, o.z - cam.position.z) < 0.5 && cam.position.y < o.y + 2.1, p);
+    }
     this.camLook = target.clone();
     cam.lookAt(target);
   }
@@ -920,7 +957,8 @@ class Game {
       else if (this.mode === 'menu') click($('screen').querySelector('[data-a=resume], [data-a=back]'));
     }
     if (p.pressed(BTN.X) || p.pressed(BTN.R3)) this.toggleFocus();
-    if (p.pressed(BTN.Y)) this.mode === 'palace' ? click($('palace').querySelector('.close')) : this.openPalace();
+    const present = this.mode === 'talk' && this.dialogue.inline.querySelector('.present');
+    if (p.pressed(BTN.Y)) present ? click(present) : this.mode === 'palace' ? click($('palace').querySelector('.close')) : this.openPalace();
     if (p.pressed(BTN.VIEW)) this.mode === 'menu' ? click($('screen').querySelector('[data-a=resume], [data-a=back]')) : this.openMenu();
     if (p.pressed(BTN.MENU)) this.mode === 'book' ? click($('book').querySelector('.close')) : this.openBook();
     if (this.mode === 'book' && (p.pressed(BTN.LB) || p.pressed(BTN.RB))) {  // flip notebook tabs
