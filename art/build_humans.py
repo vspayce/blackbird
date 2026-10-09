@@ -114,6 +114,17 @@ def slick_hair(hair, body, keep=0.3, gap=0.004):
         v.co = loc + nrm * max(gap, out * keep)
 
 
+def puff_hair(hair, body, amount):
+    """Dress hair up off the scalp, most over the crown and front: a little of the 1890s pompadour."""
+    bvh = world_mesh_bvh([body])
+    top = max(v.co.z for v in hair.data.vertices)
+    for v in hair.data.vertices:
+        loc, nrm, i, d = bvh.find_nearest(v.co)
+        if loc is None: continue
+        k = max(0.0, 1 - (top - v.co.z) / 0.14) * (1.0 if v.co.y < loc.y + 0.02 else 0.7)
+        v.co += nrm * amount * k
+
+
 def eye_colour(eyes, colour):
     path = os.path.join(USR, 'eyes', 'materials', f'{colour}_eye.png')
     img = bpy.data.images.load(path)
@@ -178,7 +189,7 @@ def plain(name, hex, rough=0.6, metal=0.0):
 
 def make_body(c):
     macro = TargetService.get_default_macro_info_dict()
-    macro.update(gender=1.0, cupsize=0.5, firmness=0.5, **c['macro'])
+    macro.update({'gender': 1.0, 'cupsize': 0.5, 'firmness': 0.5, **c['macro']})
     macro['race'] = {'caucasian': 1.0, 'asian': 0.0, 'african': 0.0}
     body = HumanService.create_human(macro_detail_dict=macro)
     for k, w in c.get('face', {}).items():
@@ -860,6 +871,20 @@ CAST = {
         clothes=['toigo_male_suit_3', 'shoes06', 'grinsegold_moustache'], suit='#2a2622', shoes='#120f0d',
         moustache='#c8c4bc', hand_clearance=0.06,
     ),
+    # Chapter III. Brigid O'Shaughnessy, "Miss Wonderly" (Hammett): tall, pliantly slender, dark red hair,
+    # cobalt-blue eyes; here in an 1895 walking dress of blue, a fitted bodice over a long flared skirt.
+    'brigid': dict(
+        height=1.7,
+        macro=dict(gender=0.0, age=0.52, muscle=0.45, weight=0.38, height=0.6, proportions=0.85, cupsize=0.45),
+        face={'head/head-oval': 0.7, 'head/head-scale-horiz-decr': 0.1, 'nose/nose-scale-horiz-decr': 0.35,
+              'nose/nose-point-up': 0.2, 'mouth/mouth-scale-horiz-decr': 0.1, 'eyes/r-eye-scale-incr': 0.2,
+              'eyes/l-eye-scale-incr': 0.2, 'cheek/l-cheek-volume-decr': 0.15, 'cheek/r-cheek-volume-decr': 0.15, 'cheek/l-cheek-bones-incr': 0.4, 'cheek/r-cheek-bones-incr': 0.4,
+              'mouth/mouth-upperlip-volume-incr': 0.3, 'mouth/mouth-lowerlip-volume-incr': 0.2,
+              'eyebrows/eyebrows-angle-up': 0.4, 'chin/chin-width-decr': 0.3, 'chin/chin-jaw-drop-decr': 0.2},
+        hair=['elvs_reverse_french_braid_bun'], puff=0.01, hair_color='#7a2a16', eyebrows='eyebrow009', eyes='deepblue',
+        skin='young_caucasian_female2', clothes=['toigo_female_suit', 'shoes01'], top='#25386a', shoes='#14100d',
+        gown='#34498a', hand_clearance=0.15,
+    ),
 }
 
 
@@ -883,8 +908,11 @@ def build(name, c):
     if suit:
         # recolour the suit for 1895: the atlas holds jacket, shirt and tie; dark goes to wool, light to linen
         split_tint(suit, c['suit'], c.get('shirt', '#e8e2d4'), c.get('split', 0.42))
+    for p in parts.values():
+        if c.get('top') and 'female_suit' in p.name: split_tint(p, c['top'], c.get('shirt', '#ece6d8'), 0.55, 0.8)
     for h in c.get('hair', []):
         if c.get('slick'): slick_hair(parts[h], body)
+        if c.get('puff'): puff_hair(parts[h], body, c['puff'])
     eye_colour(parts['low-poly'], c.get('eyes', 'grey'))
     for p in parts.values():
         if p.name.endswith(tuple(h for h in c.get('hair', []))): tint(p, c['hair_color'], keep_texture=0.6, rough=0.55)
@@ -942,6 +970,28 @@ def build(name, c):
         if not done_up: zs = [z_waist + 0.02 - i * 0.1 for i in range(3)]
         cols = [front_of(coat, 0.035, z) for z in zs]
         buttons(rig, plain(f'{name}_horn', '#15110d', 0.4), [0.035] * len(zs), [y - 0.004 for y in cols], zs)
+    if c.get('gown'):
+        # an 1895 walking skirt: from the waist to the floor, flaring like a bell, hiding the trousers of the suit
+        silk = fabric(f'{name}_faille', c['gown'], 'wool', rough=0.65, scale=10)
+        z_waist = bone_head(rig, 'spine_01').z + 0.05
+        z_floor = bone_head(rig, 'foot_l').z - 0.02
+        centre = (0.0, bone_head(rig, 'pelvis').y)
+        bvh = world_mesh_bvh(sources, ARM_GROUPS)
+        z_hip = bone_head(rig, 'thigh_l').z - 0.04
+        ring = lambda z: smooth_ring([x + 0.035 for x in envelope(bvh, z, centre, 48)], 3)
+        hip = ring(z_hip)
+        rows = []
+        for i in range(9):  # fitted from the waist over the hips
+            z = z_waist - (z_waist - z_hip) * i / 8
+            rows.append((z, [max(a, b * (0.7 + 0.3 * i / 8)) for a, b in zip(ring(z), hip)]))
+        steps = int((z_hip - z_floor) / 0.04)
+        for i in range(1, steps + 1):  # then a bell, widening toward the hem, more behind than in front
+            t = i / steps
+            z = z_hip - (z_hip - z_floor) * t
+            rows.append((z, [r + 0.24 * t ** 1.4 * (1 + 0.35 * (1 - math.cos(2 * math.pi * k / 48)) / 2)
+                             for k, r in enumerate(hip)]))
+        skirt = garment('Skirt', silk, rows, centre, seg=48)
+        transfer_weights(skirt, body, rig, skirt_weights(rig, bone_head(rig, 'thigh_l').z + 0.05, z_floor))
     if c.get('tunic'):
         # police tunic: brass buttons down the front and a black belt
         suitm = [o for o in sources if 'suit' in o.name][0]
@@ -1015,7 +1065,9 @@ def render(rig, body, out, name):
     cam = bpy.data.objects.new('Cam', bpy.data.cameras.new('Cam')); scene.collection.objects.link(cam)
     scene.camera = cam
     h = bone_head(rig, 'head')
+    rig.animation_data.action = None
     for t in rig.animation_data.nla_tracks: t.mute = True
+    for pb in rig.pose.bones: pb.rotation_quaternion = (1, 0, 0, 0); pb.location = (0, 0, 0)
     scene.frame_set(0)
     shots = [('full', (1.4, -4.6, 1.15), (0, 0, 0.95), 45, (900, 1200)),
              ('face', (0.32, -0.95, h.z + 0.08), (0, h.y, h.z + 0.07), 85, (900, 900)),

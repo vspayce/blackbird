@@ -57,7 +57,7 @@ class Game {
       this.alley = null;
       // the city below Nob Hill runs out to the far shore of the bay
       this.camera.near = 0.08; this.camera.far = 6000; this.camera.updateProjectionMatrix();
-    } else if (WORLD === 'palace') {
+    } else if (WORLD === 'palace' || WORLD === 'stmark') {
       this.world = new Room(this.scene);
       this.alley = null;
     } else if (WORLD === 'kearny') {
@@ -967,5 +967,5 @@ class Game {
 const models = ['holmes', ...new Set(Object.values(PREVIEW ? { w: PEOPLE.watson } : PEOPLE).map(p => p.look.model).filter(Boolean))];
 if (CHAPTER.id === 'archer' && !PREVIEW) models.push('archer');
 const ride = showRide(PREVIEW ? { to: 'Nob Hill', place: 'The Mark Hopkins Institute of Art', time: 'An evening walk' } : CHAPTER.ride);
-const assets = [loadModels(models), { hopkins: loadHopkins, kearny: loadKearny, palace: () => loadRoom('palace') }[WORLD]?.() ?? loadSet()];
+const assets = [loadModels(models), { hopkins: loadHopkins, kearny: loadKearny, palace: () => loadRoom('palace'), stmark: () => loadRoom('stmark') }[WORLD]?.() ?? loadSet()];
 Promise.all(assets).then(() => { window.game = new Game(); return ride(); });
