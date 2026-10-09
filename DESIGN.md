@@ -44,7 +44,7 @@ who once helped Holmes. Holmes and Watson are in the city as his guests.
 | # | Chapter | Novel beat | New mechanic it introduces |
 |---|---------|-----------|------------------------------|
 | I | **Burritt Alley** *(built)* | Archer shot; Thursby blamed | Explore, Focus, close-up, interrogation, notebook, Mind Palace, accusation, case rating |
-| II | **The Levantine** | Joel Cairo searches Holmes's rooms at gunpoint; gardenia | Character portrait; fight prediction |
+| II | **The Levantine** *(built)* | Joel Cairo searches Holmes's rooms at gunpoint; gardenia | Character portrait; fight prediction |
 | III | **The St. Mark** | "Miss Wonderly" is Brigid O'Shaughnessy; one lie after another | Focus tells during speech; presenting evidence mid-conversation |
 | IV | **The Fat Man** *(built)* | Kasper Gutman tells the falcon's history (Knights of Malta, 1539); the drugged whisky | Research at the **Mark Hopkins Institute of Art**; the drugged, broken-memory reconstruction; story events |
 | V | **The Gunsel** *(built)* | Wilmer tails Holmes through the fog | Tailing and counter-tailing on foot through the city |
@@ -55,6 +55,15 @@ The fake falcon pays off careful players. If they noticed small details in
 Chapters IV–VI (the weight Jacobi carried, fresh enamel, the smell of hot
 lead at a Kearny Street foundry), they can call it a fake before Gutman
 scrapes it. That opens a different last scene.
+
+**Chapter II at the Palace Hotel** *(built, `src/cases/cairo.js`, set `art/build_palace.py`)*. The morning after
+Archer's death Holmes's suite has been searched (desk drawers out, the cushion slit, books pulled). Meeting Cairo
+opens the **character portrait**: the moment freezes in a close-up, you tap four details on him under Focus (the
+gardenia, soft hands and rings, a tan to the cuff, a new holster) and complete Holmes's reading of him line by
+line. He offers $5,000 for the black bird, then draws a pistol: **fight prediction** stops time and you plan
+three moves (step inside the gun arm, strike the wrist, elbow to the jaw); a plan that ignores what you read in
+him breaks, with the reason. Then his pockets (three passports, a theatre ticket, the arrivals from Hong Kong)
+and two lies to catch. The question: why did Cairo search your rooms?
 
 **Chapter IV and the Hopkins Institute** *(built, `src/cases/gutman.js`)*. In 1895 the Hopkins mansion on Nob
 Hill was the San Francisco Art Association's school and gallery. Gutman's note summons Holmes there at ten.
@@ -169,16 +178,10 @@ Mind Palace and wrong accusations.
 remember.
 
 ### 8. Planned mechanics
-- **Character portrait** (Ch. II): meeting someone new freezes them in a
-  portrait pose. Scan them in Focus, pick out details and deduce what they
-  are ("a Levantine, a collector, has been to sea recently, carries a pistol
-  he has no idea how to use").
 - **Reconstruction**: at marked spots, ghostly figures replay a moment. You set
   the order of events and the scene plays back to check you.
-- **Fight prediction**: rare set pieces. Holmes freezes the moment and plans
-  three moves on a timeline ("knock the gun hand, elbow, sweep"). You watch a
-  ghosted preview, then it plays for real. If you missed a detail (Wilmer's
-  second gun), the plan breaks.
+- **Fight prediction**, more of it: built for Ch. II as a timeline of three moves with a lit preview of
+  where the plan holds and where it breaks. Later: a true ghosted 3D preview, and Wilmer's second gun.
 - **Tailing**: follow Wilmer through the fog without being seen, using shop
   windows and cable cars as cover.
 - **Archive**: the Hopkins Institute's records and library, where you look up
@@ -289,7 +292,7 @@ the traps we hit are in `docs/SETUP.md`.
    - an audio pass.
 6. ✅ Chapter IV at the Hopkins Institute (Gutman, Wilmer, Wren; the reconstruction).
 7. ✅ Chapter V on Kearny Street (tailing, the Sutter Street cable car); save slots, pause menu, save codes.
-8. Chapter II with the character portrait and fight prediction.
+8. ✅ Chapter II at the Palace Hotel (character portrait, fight prediction); the cab ride between chapters.
 9. Focus tells and presenting evidence mid-speech (Ch. III).
 10. Chapters VI (La Paloma) and VII (The Black Bird).
 11. PWA install, localisation; a tvOS build (Unity) if it goes to the App Store.

@@ -82,3 +82,8 @@ named places). Chapter V: `?chapter=5`.
 The game autosaves as you play; the pause menu (Menu, Esc or the controller's
 View button) has three save slots, loading, and a save code to move a save
 between devices. Continue on the title resumes the latest save.
+
+## The Palace Hotel (Chapter II)
+
+`art/build_palace.py` builds Holmes's suite at the Palace Hotel (it borrows the
+Hopkins builder's furniture). Chapter II: `?chapter=2`.

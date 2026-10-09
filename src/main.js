@@ -8,14 +8,15 @@ import { Pad, BTN } from './core/gamepad.js';
 import { Alley, loadSet } from './world/alley.js';
 import { Hopkins, loadHopkins } from './world/hopkins.js';
 import { Kearny, loadKearny } from './world/kearny.js';
+import { Room, loadRoom } from './world/room.js';
 import { Tail } from './game/tail.js';
-import { createFigure, loadModels } from './game/figure.js';
+import { createFigure, loadModels, makePistol } from './game/figure.js';
 import { CaseState } from './game/state.js';
 import { HUD } from './ui/hud.js';
 import { Dialogue } from './ui/dialogue.js';
 import { Casebook, MindPalace } from './ui/palace.js';
-import { titleScreen, cards, accuse, endCard, hideScreen, reconstruct, pauseMenu, slotPicker, codeScreen } from './ui/screens.js';
-import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION, EVENTS, TAIL, chapterNumber } from './cases/current.js';
+import { titleScreen, cards, accuse, endCard, hideScreen, reconstruct, pauseMenu, slotPicker, codeScreen, profileSheet, fightPlanner } from './ui/screens.js';
+import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION, EVENTS, TAIL, PORTRAITS, FIGHTS, chapterNumber } from './cases/current.js';
 import { saves } from './game/saves.js';
 import { showRide, rideNext } from './ui/ride.js';
 import { NEXT_PLAYABLE, chapterNames } from './cases/current.js';
@@ -56,6 +57,9 @@ class Game {
       this.alley = null;
       // the city below Nob Hill runs out to the far shore of the bay
       this.camera.near = 0.08; this.camera.far = 6000; this.camera.updateProjectionMatrix();
+    } else if (WORLD === 'palace') {
+      this.world = new Room(this.scene);
+      this.alley = null;
     } else if (WORLD === 'kearny') {
       this.world = new Kearny(this.scene);
       this.alley = null;
@@ -181,7 +185,7 @@ class Game {
     this.input.enabled = m === 'explore';
     if (!this.input.enabled) this.input.release();
     const playing = ['explore', 'closeup'].includes(m);
-    this.hud.show(playing || m === 'talk');
+    this.hud.show(playing || m === 'talk' || m === 'portrait');
     document.body.dataset.mode = m;
     this.hud.back.classList.toggle('hidden', m !== 'closeup');
     if (m !== 'explore') this.hud.setAct(null);
@@ -297,6 +301,7 @@ class Game {
 
   begin() {
     this.syncPresence();
+    if (FIGHTS?.fight && this.state.events.includes('fight')) this.showPockets();
     const h = this.holmes.object, w = this.people.watson.fig.object;
     if (this.resumeAt && !PREVIEW) {  // a loaded save: exactly where he stood
       const r = this.resumeAt; this.resumeAt = null;
@@ -334,6 +339,7 @@ class Game {
   runEvent(name) {
     const ev = EVENTS[name];
     if (!ev) return;
+    if (ev.type === 'fight') return this.runFight(name, FIGHTS[name]);
     this.setMode('intro');
     if (ev.type === 'cards') {  // a short scene told in cards, then Holmes is somewhere (wake) with a clue (gives)
       cards(ev.lines, () => {
@@ -425,6 +431,7 @@ class Game {
     if (s.closeup) return this.enterCloseup();
     if (s.needs && !s.needs.every(n => this.state.has(n))) return this.hud.say(s.early ?? 'Nothing here that I can use yet.');
     if (s.event && !this.state.events.includes(s.event)) return this.runEvent(s.event);
+    if (s.clues) return this.gain(s.clues.find(c => !this.state.has(c)) ?? s.clues[s.clues.length - 1]);  // one at a time
     if (s.clue) return this.gain(s.clue);
     if (s.say) this.hud.say(s.say);
   }
@@ -459,6 +466,108 @@ class Game {
     this.hud.say(lines[s.id] ?? s.label);
   }
 
+  // A fixed camera for the portrait and the fight: placed relative to a person (fwd: toward their front)
+  fixCamera(o, fwd, side, up, lookUp) {
+    const f = new THREE.Vector3(Math.sin(o.rotation.y), 0, Math.cos(o.rotation.y));
+    const r = new THREE.Vector3(f.z, 0, -f.x);
+    this.fixedCam = {
+      pos: o.position.clone().addScaledVector(f, fwd).addScaledVector(r, side).add(new THREE.Vector3(0, up, 0)),
+      look: o.position.clone().add(new THREE.Vector3(0, lookUp, 0)),
+      t: 0, from: this.camera.position.clone(), lookFrom: this.camLook?.clone() ?? o.position.clone(),
+    };
+  }
+
+  // The character portrait (Chapter II): meeting someone freezes the moment in a close-up. Markers on them give
+  // readings; once all are found, Holmes's reading is completed line by line; then the conversation begins.
+  enterPortrait(id, def) {
+    const person = this.people[id].fig.object, h = this.holmes.object.position;
+    person.rotation.y = Math.atan2(h.x - person.position.x, h.z - person.position.z);
+    this.setMode('portrait');
+    this.fixCamera(person, 1.25, 0.28, 1.58, 1.32);
+    this.portrait = { id, def, person };
+    this.hud.say('Hold. Look at him, Watson, before he says a word.');
+  }
+
+  portraitFound(spot) {
+    this.gain(spot.clue);
+    const P = this.portrait;
+    if (!P.def.spots.every(s => this.state.has(s.clue)) || P.sheet) return;
+    P.sheet = true;
+    setTimeout(() => profileSheet({
+      who: PEOPLE[P.id].name, lines: P.def.lines,
+      onWrong: () => { this.state.misses++; this.state.save(); audio.wrong(); },
+      onDone: () => {
+        hideScreen();
+        this.state.addEvent(P.def.event);
+        this.gain(P.def.gives);
+        this.portrait = null; this.fixedCam = null;
+        this.talk(P.id);
+      },
+    }), 900);
+  }
+
+  // Fight prediction (Chapter II): the pistol comes out, time stops, the player plans three moves
+  runFight(name, def) {
+    const foe = this.people[def.who], h = this.holmes.object;
+    this.setMode('fight');
+    foe.fig.object.rotation.y = Math.atan2(h.position.x - foe.fig.object.position.x, h.position.z - foe.fig.object.position.z);
+    foe.fig.pose('Aim');
+    this.pistol = makePistol();
+    foe.fig.hold(this.pistol);
+    this.holmes.pose('HandsUp');
+    h.rotation.y = Math.atan2(foe.fig.object.position.x - h.position.x, foe.fig.object.position.z - h.position.z);
+    // a side-on two-shot from the room's side: both men, and the gun between them
+    const c = foe.fig.object.position, mid = h.position.clone().lerp(c, 0.5);
+    const dir = c.clone().sub(h.position).setY(0).normalize(), perp = new THREE.Vector3(dir.z, 0, -dir.x);
+    if (perp.dot(mid.clone().negate()) < 0) perp.negate();  // toward the middle of the room, away from the walls
+    this.fixedCam = {
+      pos: mid.clone().addScaledVector(perp, 3.0).addScaledVector(dir, -0.6).add(new THREE.Vector3(0, 1.55, 0)),
+      look: mid.clone().add(new THREE.Vector3(0, 1.3, 0)),
+      t: 0, from: this.camera.position.clone(), lookFrom: this.camLook?.clone() ?? mid.clone(),
+    };
+    fightPlanner({
+      title: def.title, prompt: def.prompt, moves: def.moves,
+      check: plan => {
+        const at = plan.findIndex((m, i) => m !== def.plan[i]);
+        return at < 0 ? { ok: true } : { ok: false, at, why: def.why[plan[at]] ?? 'No.' };
+      },
+      onFail: () => { this.state.misses++; this.state.save(); audio.wrong(); },
+      onSuccess: () => {
+        audio.deduce();
+        // for real: Holmes goes in under the gun
+        const from = h.position.clone(), to = foe.fig.object.position.clone().lerp(h.position, 0.55);
+        let k = 0;
+        const lunge = () => { k = Math.min(1, k + 0.08); h.position.lerpVectors(from, to, k * k * (3 - 2 * k)); if (k < 1) requestAnimationFrame(lunge); };
+        this.holmes.pose(null); lunge();
+        this.setMode('intro');
+        cards(def.success, () => {
+          hideScreen();
+          foe.fig.pose(null); foe.fig.hold(null);
+          this.pistol.position.set(-1.6, 0.74, 0.2); this.pistol.rotation.set(Math.PI / 2, 0, 0.6);  // on the table now
+          this.scene.add(this.pistol);
+          this.showPockets();
+          this.state.addEvent(name);
+          this.fixedCam = null;
+          this.setMode('explore');
+          this.hud.say('Now then, Mr. Cairo. Your pockets, onto the table.');
+          this.autosave();
+        }, 'intro epilogue');
+      },
+    });
+  }
+
+  // Chapter II: what came out of Cairo's pockets, laid on the table by the sofa
+  showPockets() {
+    if (this.pocketProps) return;
+    this.pocketProps = new THREE.Group();
+    const add = (geo, color, x, z, r) => { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.7 })); m.position.set(x, 0.73, z); m.rotation.y = r; this.pocketProps.add(m); };
+    const book = new THREE.BoxGeometry(0.09, 0.012, 0.13);
+    add(book, '#5a1a14', -2.05, -0.15, 0.3); add(book, '#1e2a4a', -1.92, -0.2, -0.2); add(book, '#2a3a2a', -1.98, -0.05, 0.9);
+    add(new THREE.BoxGeometry(0.06, 0.002, 0.12), '#d8cfb8', -1.75, 0.1, 0.4);
+    add(new THREE.BoxGeometry(0.1, 0.002, 0.16), '#cfc6ae', -1.85, 0.2, -0.5);
+    this.scene.add(this.pocketProps);
+  }
+
   // Chapter IV: Watson stays below while Holmes goes up to meet Gutman alone
   watsonWaits() {
     const w = CHAPTER.watsonWaits;
@@ -466,6 +575,8 @@ class Game {
   }
 
   talk(id) {
+    const portrait = PORTRAITS?.[id];
+    if (portrait && !this.state.events.includes(portrait.event)) return this.enterPortrait(id, portrait);
     this.setMode('talk');
     const fig = this.people[id].fig.object;
     const h = this.holmes.object.position;
@@ -651,6 +762,15 @@ class Game {
       cam.lookAt(this.camLook);
       return;
     }
+    if (this.fixedCam && ['portrait', 'fight', 'intro'].includes(this.mode)) {
+      const c = this.fixedCam;
+      c.t = Math.min(1, c.t + dt * 1.6);
+      const k = c.t * c.t * (3 - 2 * c.t);
+      cam.position.lerpVectors(c.from, c.pos, k);
+      this.camLook = c.lookFrom.clone().lerp(c.look, k);
+      cam.lookAt(this.camLook);
+      return;
+    }
     if (this.mode === 'closeup') {
       this.camT = Math.min(1, this.camT + dt * 1.4);
       const k = this.camT * this.camT * (3 - 2 * this.camT);
@@ -700,7 +820,7 @@ class Game {
       }
       for (const s of this.spots) {
         if (!this.spotLive(s) || !this.sameFloor(s.pos[1], p)) continue;
-        const found = s.clue && this.state.has(s.clue);
+        const found = s.clues ? s.clues.every(c => this.state.has(c)) : s.clue && this.state.has(s.clue);
         const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
         if (s.focus && !found) {
           if (f < 0.3 || d > 9) continue;
@@ -729,6 +849,13 @@ class Game {
           });
         }
       }
+    } else if (this.mode === 'portrait' && this.portrait && this.fixedCam?.t > 0.85) {
+      for (const s of this.portrait.def.spots) {
+        const found = this.state.has(s.clue);
+        const w = this.portrait.person.localToWorld(new THREE.Vector3(...s.local));
+        const sc = this.project(w.x, w.y, w.z);
+        if (sc) hud.label('pt:' + s.clue, sc[0], sc[1], found ? CLUES[s.clue].title : s.label, 'mark focus' + (found ? ' done' : ''), () => { if (!found) this.portraitFound(s); });
+      }
     } else if (this.mode === 'closeup' && this.camT > 0.85) {
       for (const s of CLOSEUP.spots) {
         const found = this.state.has(s.clue);
@@ -751,6 +878,8 @@ class Game {
       case 'book': return [$('book')];
       case 'palace': return [$('palace')];
       case 'closeup': return [$('labels'), $('btn-back')];
+      case 'portrait': return [$('labels'), $('screen')];
+      case 'fight': return [$('screen')];
       default: return null;
     }
   }
@@ -807,7 +936,7 @@ class Game {
       this.meter = Math.max(0, this.meter - dt * 0.1);
       if (this.meter === 0) { this.focusOn = false; audio.focus(false); this.hud.say('Enough. The mind must rest.'); }
     } else this.meter = Math.min(1, this.meter + dt * 0.08);
-    this.focus = damp(this.focus, this.focusOn ? 1 : 0, 5, dt);
+    this.focus = damp(this.focus, this.focusOn || ['portrait', 'fight'].includes(this.mode) ? 1 : 0, 5, dt);
     const wdt = dt * (1 - 0.7 * this.focus);
     this.camera.fov = 55 - 7 * this.focus;
     this.camera.updateProjectionMatrix();
@@ -838,5 +967,5 @@ class Game {
 const models = ['holmes', ...new Set(Object.values(PREVIEW ? { w: PEOPLE.watson } : PEOPLE).map(p => p.look.model).filter(Boolean))];
 if (CHAPTER.id === 'archer' && !PREVIEW) models.push('archer');
 const ride = showRide(PREVIEW ? { to: 'Nob Hill', place: 'The Mark Hopkins Institute of Art', time: 'An evening walk' } : CHAPTER.ride);
-const assets = [loadModels(models), { hopkins: loadHopkins, kearny: loadKearny }[WORLD]?.() ?? loadSet()];
+const assets = [loadModels(models), { hopkins: loadHopkins, kearny: loadKearny, palace: () => loadRoom('palace') }[WORLD]?.() ?? loadSet()];
 Promise.all(assets).then(() => { window.game = new Game(); return ride(); });

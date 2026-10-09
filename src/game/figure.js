@@ -33,11 +33,12 @@ function fromSkinned(gltf) {
   for (const a of Object.values(act)) { a.play(); a.setEffectiveWeight(0); }
   act.Idle?.setEffectiveWeight(1);
   if (act.Idle) act.Idle.time = Math.random() * act.Idle.getClip().duration;
-  let talking = false, talk = 0, lying = false;
+  let talking = false, talk = 0, lying = false, posed = null;
   return {
     object: root,
     animate(dt, speed) {
       if (lying) return;
+      if (posed) { mixer.update(dt); return; }
       const walk = Math.min(1, speed / 0.9);
       talk += ((talking ? 1 : 0) - talk) * Math.min(1, dt * 4);
       act.Walk?.setEffectiveWeight(walk);
@@ -47,6 +48,19 @@ function fromSkinned(gltf) {
       mixer.update(dt);
     },
     setTalking(on) { talking = on; },
+    // hold a named pose (a one-frame clip such as Aim or HandsUp) until pose(null)
+    pose(name) {
+      posed = name && act[name] ? name : null;
+      for (const [n, a] of Object.entries(act)) a.setEffectiveWeight(posed ? (n === posed ? 1 : 0) : n === 'Idle' ? 1 : 0);
+      mixer.update(0);
+    },
+    // put something in a hand ('hand_r'): offset in the bone's space; null takes it away
+    hold(obj, bone = 'hand_r') {
+      const b = root.getObjectByName(bone);
+      if (this.held) this.held.parent?.remove(this.held);
+      this.held = obj;
+      if (obj && b) b.add(obj);
+    },
     lieBack() {
       lying = true;
       for (const a of Object.values(act)) a.setEffectiveWeight(a === act.LieBack ? 1 : 0);
@@ -206,5 +220,20 @@ function withAnimation(parts) {
     head.rotation.z = 0.35;
   }
 
-  return { ...parts, animate, lieBack, setTalking() {}, object: parts.root };
+  return { ...parts, animate, lieBack, setTalking() {}, pose() {}, hold() {}, object: parts.root };
+}
+
+// a small revolver, for a hand: the barrel runs along the bone (+y), toward the fingers
+export function makePistol() {
+  const g = new THREE.Group();
+  const steel = new THREE.MeshStandardMaterial({ color: '#202124', roughness: 0.35, metalness: 0.85 });
+  const wood = new THREE.MeshStandardMaterial({ color: '#3a2216', roughness: 0.6 });
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.13, 8), steel);
+  barrel.position.set(0, 0.11, 0.03);
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.04, 10), steel);
+  drum.position.set(0, 0.04, 0.03);
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.07, 0.03), wood);
+  grip.position.set(0, 0.0, 0.0); grip.rotation.x = 0.5;
+  g.add(barrel, drum, grip);
+  return g;
 }

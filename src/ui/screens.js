@@ -215,3 +215,83 @@ export function reconstruct(ev, onDone, sound) {
     frags.appendChild(b);
   }
 }
+
+// The character portrait, second half: Holmes's reading of the person, a line at a time. Each line is a lead
+// ("He is") and a choice of endings; a wrong choice is answered and counted. lines: [{ lead, options, answer, why }]
+export function profileSheet({ who, lines, onWrong, onDone }) {
+  const s = show(`<div class="profile"><p class="pre">Character portrait</p><h2></h2><div class="lines"></div><p class="reply"></p></div>`);
+  s.classList.add('see-through');
+  s.querySelector('h2').textContent = who;
+  const box = s.querySelector('.lines'), reply = s.querySelector('.reply');
+  let i = 0;
+  const next = () => {
+    if (i >= lines.length) {
+      const go = document.createElement('button');
+      go.className = 'primary'; go.textContent = 'Go on';
+      go.onclick = e => { e.stopPropagation(); s.classList.remove('see-through'); onDone(); };
+      box.appendChild(go);
+      return;
+    }
+    const L = lines[i];
+    const row = document.createElement('div');
+    row.className = 'pline';
+    row.innerHTML = '<span class="lead"></span><span class="opts"></span>';
+    row.querySelector('.lead').textContent = L.lead;
+    for (const [k, text] of L.options.entries()) {
+      const b = document.createElement('button');
+      b.textContent = text;
+      b.onclick = e => {
+        e.stopPropagation();
+        if (k !== L.answer) { b.disabled = true; b.classList.add('wrong'); reply.textContent = L.why ?? 'No. Look again.'; onWrong?.(); return; }
+        row.querySelector('.opts').innerHTML = '';
+        const got = document.createElement('b'); got.textContent = text; row.querySelector('.opts').appendChild(got);
+        reply.textContent = '';
+        i++; next();
+      };
+      row.querySelector('.opts').appendChild(b);
+    }
+    box.appendChild(row);
+  };
+  next();
+}
+
+// Fight prediction: time stops; choose three moves for a timeline, then see the plan through. moves: [{ id, label }];
+// check(plan) -> { ok, at, why } says where it breaks. onSuccess() plays it for real.
+export function fightPlanner({ title, prompt, moves, check, onSuccess, onFail }) {
+  const s = show(`<div class="fight"><p class="pre">Fight prediction</p><h2></h2><p class="prompt"></p>
+      <ol class="slots"><li></li><li></li><li></li></ol><div class="moves"></div>
+      <div class="go"><button class="primary" data-a="run" disabled>See it through</button><button data-a="clear">Start again</button></div>
+      <p class="reply"></p></div>`);
+  s.classList.add('see-through');
+  s.querySelector('h2').textContent = title;
+  s.querySelector('.prompt').textContent = prompt;
+  const slots = [...s.querySelectorAll('.slots li')], reply = s.querySelector('.reply'), run = s.querySelector('[data-a=run]');
+  let plan = [];
+  const render = () => {
+    slots.forEach((li, i) => { li.textContent = plan[i] ? moves.find(m => m.id === plan[i]).label : '…'; li.className = plan[i] ? 'set' : ''; });
+    for (const b of s.querySelectorAll('.moves button')) b.disabled = plan.includes(b.dataset.id) || plan.length >= 3;
+    run.disabled = plan.length < 3;
+  };
+  for (const m of moves) {
+    const b = document.createElement('button');
+    b.dataset.id = m.id; b.textContent = m.label;
+    b.onclick = e => { e.stopPropagation(); plan.push(m.id); reply.textContent = ''; render(); };
+    s.querySelector('.moves').appendChild(b);
+  }
+  s.querySelector('[data-a=clear]').onclick = e => { e.stopPropagation(); plan = []; reply.textContent = ''; render(); };
+  run.onclick = e => {
+    e.stopPropagation();
+    const r = check(plan);
+    // the "preview": each move lights up in turn, until the one that breaks
+    run.disabled = true;
+    let k = 0;
+    const step = () => {
+      if (k > 0) slots[k - 1].classList.add(r.ok || k - 1 < r.at ? 'good' : 'bad');
+      if (!r.ok && k - 1 === r.at) { reply.textContent = r.why; onFail?.(); setTimeout(() => { plan = []; render(); slots.forEach(li => li.classList.remove('good', 'bad')); }, 2600); return; }
+      if (k === 3) { setTimeout(() => { s.classList.remove('see-through'); onSuccess(); }, 600); return; }
+      k++; setTimeout(step, 650);
+    };
+    step();
+  };
+  render();
+}

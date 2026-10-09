@@ -395,3 +395,27 @@ body[data-mode=talk] #tail { display: none; }
 @media (prefers-reduced-motion: reduce) { #loading.ride * { animation: none !important; } }
 .title .scenes .reset { min-width: 300px; margin-top: 6px; font-size: 15px; border-style: dashed; border-color: rgba(140,42,31,0.8); }
 .title .scenes .reset.confirm { background: var(--blood); color: #fff; }
+
+/* ---------- the character portrait and fight prediction (over the frozen scene) ---------- */
+#screen.see-through { background: linear-gradient(transparent 30%, rgba(8,10,14,0.92) 62%); align-items: flex-end; }
+.profile, .fight { width: min(820px, 100%); text-align: left; padding-bottom: 6px; }
+.profile .pre, .fight .pre { font-style: italic; color: var(--focus); margin: 0; font-size: 15px; letter-spacing: 1px; }
+.profile h2, .fight h2 { font-family: var(--caps); font-weight: normal; font-size: 26px; margin: 0 0 6px; }
+.profile .pline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin: 4px 0; font-size: 18px; }
+.profile .pline .lead { font-style: italic; color: var(--paper-dim); }
+.profile .pline .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.profile .pline .opts button, .fight .moves button { min-width: 0; min-height: 40px; padding: 6px 12px; font-size: 15px; font-family: var(--serif); }
+.profile .pline .opts b { font-weight: normal; color: var(--focus); }
+.profile .pline .opts button.wrong { text-decoration: line-through; opacity: 0.45; }
+.profile .reply, .fight .reply { min-height: 1.3em; font-style: italic; color: #e0a890; margin: 6px 0 0; }
+.fight .prompt { font-style: italic; color: var(--paper-dim); margin: 0 0 8px; }
+.fight .slots { display: flex; gap: 8px; padding: 0; margin: 0 0 8px; list-style: none; counter-reset: s; }
+.fight .slots li { flex: 1; min-height: 44px; border: 1px dashed rgba(169,208,245,0.5); padding: 8px 10px; font-size: 15px; color: var(--paper-dim); }
+.fight .slots li::before { counter-increment: s; content: counter(s) '. '; color: var(--focus); }
+.fight .slots li.set { border-style: solid; color: var(--paper); }
+.fight .slots li.good { border-color: #8fb98a; box-shadow: 0 0 14px rgba(143,185,138,0.5); }
+.fight .slots li.bad { border-color: var(--blood); box-shadow: 0 0 14px rgba(200,60,40,0.6); }
+.fight .moves { display: flex; flex-wrap: wrap; gap: 6px; }
+.fight .go { display: flex; gap: 8px; margin-top: 10px; }
+body[data-mode=portrait] #top-btns, body[data-mode=portrait] #btn-focus, body[data-mode=portrait] #objective,
+body[data-mode=portrait] #btn-act, body[data-mode=portrait] #desk-hint, body[data-mode=portrait] #pad-hint { display: none !important; }

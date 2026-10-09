@@ -2289,4 +2289,5 @@ def preview(path):
         bpy.ops.render.render(write_still=True)
 
 
-main()
+if __name__ == '__main__':  # (other set builders import this file for its furniture)
+    main()

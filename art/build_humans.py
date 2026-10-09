@@ -411,7 +411,8 @@ def transfer_weights(ob, src, rig, extra=None):
         if w2 is None:
             if len(w) == len(v.groups): continue
             w2 = w or {'spine_01': 1.0}
-        for g in list(v.groups): ob.vertex_groups[g.group].remove([v.index])
+        # (take the indices first: removing a group invalidates the element references in v.groups)
+        for gi in [g.group for g in v.groups]: ob.vertex_groups[gi].remove([v.index])
         tot = sum(x for x in w2.values() if x > 0) or 1
         for b, x in w2.items():
             if x > 0:
@@ -641,7 +642,7 @@ def aim_posed(rig, bone, direction):
     pb.rotation_quaternion = (pb.rotation_quaternion.to_matrix() @ M.inverted() @ R @ M).to_quaternion()
 
 
-def key_pose(rig, frame, rot, aims=None):
+def key_pose(rig, frame, rot, aims=None, act=None):
     """rot: {bone: (axis, angle)} in armature space; aims: {bone: direction} applied after, parents first.
     Unspecified bones go back to rest."""
     for pb in rig.pose.bones:
@@ -658,6 +659,7 @@ def key_pose(rig, frame, rot, aims=None):
         pose_world(rig, b, q)
     for b, d in (aims or {}).items():
         aim_posed(rig, b, d)
+    if act: rig.animation_data.action = act
     for pb in rig.pose.bones:
         pb.keyframe_insert('rotation_quaternion', frame=frame)
         pb.keyframe_insert('location', frame=frame)
@@ -666,14 +668,16 @@ def key_pose(rig, frame, rot, aims=None):
 def clip(rig, name, frames, poses, cyclic=True):
     act = bpy.data.actions.new(name)
     act.use_fake_user = True
-    rig.animation_data_create()
-    rig.animation_data.action = act
+    ad = rig.animation_data_create()
+    ad.use_nla = False  # the clips already made must not play while this one is posed and measured
     for f, rot, *aims in poses:
-        key_pose(rig, f, rot, aims[0] if aims else None)
+        ad.action = None  # nor this one's earlier keys
+        key_pose(rig, f, rot, aims[0] if aims else None, act)
     act.frame_range = (0, frames)
-    track = rig.animation_data.nla_tracks.new(); track.name = name
+    track = ad.nla_tracks.new(); track.name = name
     track.strips.new(name, 0, act)
-    rig.animation_data.action = None
+    ad.action = None
+    ad.use_nla = True
     return act
 
 
@@ -736,6 +740,14 @@ def make_clips(rig, gait=1.0):
         'upperarm_l': (0.85, 0.12, -0.5), 'lowerarm_l': (0.95, 0.15, -0.1), 'hand_l': (0.95, 0.2, -0.05),
         'upperarm_r': (-0.8, 0.12, -0.6), 'lowerarm_r': (-0.9, 0.2, -0.35), 'hand_r': (-0.85, 0.25, -0.3),
     })])
+    # Aim: the right arm straight out at the front (a pistol), the body turned a little behind it
+    aim = ({'spine_03': (Z, 0.15), 'head': (Z, -0.1)},
+           {'upperarm_r': (-0.12, -1, 0.08), 'lowerarm_r': (-0.05, -1, 0.06), 'hand_r': (0, -1, 0.04)})
+    clip(rig, 'Aim', 1, [(0, *aim), (1, *aim)])
+    # HandsUp: both hands raised beside the head
+    up = ({'spine_03': (X, 0.04)},
+          {'upperarm_l': (0.55, 0.05, 0.85), 'lowerarm_l': (0.05, 0.05, 1), 'upperarm_r': (-0.55, 0.05, 0.85), 'lowerarm_r': (-0.05, 0.05, 1)})
+    clip(rig, 'HandsUp', 1, [(0, *up), (1, *up)])
     for pb in rig.pose.bones:
         pb.rotation_quaternion = (1, 0, 0, 0); pb.location = (0, 0, 0)
 
@@ -826,6 +838,17 @@ CAST = {
         hair=['short03'], hair_color='#4a3a28', eyebrows='eyebrow006', eyes='lightblue', slick=True,
         clothes=['toigo_male_suit_3', 'shoes06', 'elvs_male_flat_cap1'], suit='#2a2a2c', shoes='#16120e',
         coat='overcoat', coat_color='#2c2e30', hand_clearance=0.085, cap='#3a3632',
+    ),
+    # Joel Cairo, the Levantine (Hammett): small-boned, dark, glossy black hair, rings, a tight black coat, gardenia.
+    'cairo': dict(
+        height=1.7,
+        macro=dict(age=0.45, muscle=0.3, weight=0.42, height=0.4, proportions=0.65),
+        face={'head/head-oval': 0.5, 'nose/nose-hump-incr': 0.4, 'nose/nose-scale-vert-incr': 0.2, 'eyebrows/eyebrows-angle-up': 0.3,
+              'mouth/mouth-scale-horiz-decr': 0.2, 'chin/chin-prominent-decr': 0.2, 'cheek/l-cheek-volume-incr': 0.2,
+              'cheek/r-cheek-volume-incr': 0.2},
+        hair=['short02'], hair_color='#0a0908', eyebrows='eyebrow001', eyes='brown', slick=True, skin='middleage_caucasian_male',
+        clothes=['toigo_male_suit_3', 'shoes06'], suit='#141218', shirt='#ece6d8', shoes='#0b0a0a',
+        coat='frock', coat_color='#18161c', hand_clearance=0.06,
     ),
     # Mr. Tobias Wren, keeper of the Art Association's collection (invented): thin, elderly, ink on his fingers.
     'wren': dict(

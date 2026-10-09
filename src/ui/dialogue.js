@@ -79,6 +79,8 @@ export class Dialogue {
     TALK[this.person].topics.forEach((t, i) => {
       if (t.needs && !t.needs.every(n => state.has(n))) return;
       if (t.event && state.events.includes(t.event)) return;
+      if (t.after && !state.events.includes(t.after)) return;   // only once something has happened
+      if (t.before && state.events.includes(t.before)) return;  // only until it has
       const key = this.person + i;
       const called = t.challenge && key in state.calls;
       const done = this.asked.has(key) || (t.gives && state.has(t.gives)) || called;
