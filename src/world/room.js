@@ -1,5 +1,6 @@
 // An interior built by a set script (palace.glb + palace.json): colliders, gas lamps and named places.
-// A few warm lights move to the lamps nearest Holmes; the fire flickers. Used for Holmes's suite (Chapter II).
+// A few warm lights move to the lamps nearest Holmes; the fire flickers. Used for Holmes's suite at the Palace
+// (Chapter II) and Brigid's at the St. Mark (Chapter III).
 import * as THREE from 'three';
 import { gltfLoader } from '../core/gltf.js';
 
@@ -17,6 +18,15 @@ export class Room {
     this.group = new THREE.Group();
     scene.add(this.group);
     this.group.add(model);
+    model.traverse(o => {
+      const m = o.material;
+      if (!o.isMesh || !m) return;
+      // the street outside the windows is painted with its own fog and daylight: the room's fog would black it out
+      if (m.name.startsWith('view_')) m.fog = false;
+      // glass and lace are opaque in the glTF; here they let the street show through
+      if (m.name === 'glass_clear') Object.assign(m, { transparent: true, opacity: 0.16, depthWrite: false });
+      if (m.name === 'lace') Object.assign(m, { transparent: true, opacity: 0.5, depthWrite: false });
+    });
     this.colliders = data.colliders.map(c => new THREE.Box3(new THREE.Vector3(c[0], c[1], c[2]), new THREE.Vector3(c[3], c[4], c[5])));
     this.lamps = data.lamps.map(p => new THREE.Vector3(...p));
     this.interact = [];

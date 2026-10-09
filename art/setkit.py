@@ -246,7 +246,10 @@ def tube(mat, pts, r, seg=6):
         cyl(mat, a, d.length, r, seg=seg, axis=d, cap=False)
 
 
-def text(mat, s, F, u, v, w, size, align='CENTER', extrude=0.008):
+def text(mat, s, F, u, v, w, size, align='CENTER', extrude=0.0):
+    """Lettering on the plane w of frame F. Flat by default: the sides of extruded letters were three quarters
+    of their triangles (Kearny's signs alone came to 28k) and nobody sees 8 mm of depth from the pavement."""
+    w = w + (0.006 if not extrude else 0.0)  # flat letters float just off the board rather than z-fight with it
     cu = bpy.data.curves.new('t', 'FONT')
     cu.body = s
     cu.font = bpy.data.fonts.load(FONT, check_existing=True)
@@ -273,31 +276,28 @@ def text(mat, s, F, u, v, w, size, align='CENTER', extrude=0.008):
 
 
 def gas_lamp(x, z, h=3.7, y=0.0):
-    """San Francisco cast-iron gas lamp: plinth, fluted column, ladder bar, lantern, crown. y: ground height."""
+    """San Francisco cast-iron gas lamp: plinth, fluted column, ladder bar, lantern, crown. y: ground height.
+    About 300 triangles: a street has dozens, so the flutes are the column's eight facets, not eight rods."""
     i = 'iron'
     cyl(i, (x, 0 + y, z), 0.12, 0.2, 0.2, seg=8)
     cyl(i, (x, 0.12 + y, z), 0.45, 0.17, 0.12, seg=8)
     cyl(i, (x, 0.57 + y, z), 0.06, 0.14, 0.14, seg=8)
-    for k in range(8):  # flutes
-        a = k * math.pi / 4
-        cyl(i, (x + math.cos(a) * 0.07, 0.63 + y, z + math.sin(a) * 0.07), h - 1.35, 0.022, 0.016, seg=5)
-    cyl(i, (x, 0.63 + y, z), h - 1.35, 0.075, 0.055, seg=10)
+    cyl(i, (x, 0.63 + y, z), h - 1.35, 0.085, 0.06, seg=8, cap=False)
     yb = h - 0.72
-    cyl(i, (x, yb + y, z), 0.06, 0.09, 0.09, seg=10)
-    tube(i, [(x - 0.42, yb + 0.03 + y, z), (x + 0.42, yb + 0.03 + y, z)], 0.018)  # the lamplighter's ladder bar
-    for s in (-1, 1): sphere(i, (x + s * 0.43, yb + 0.03 + y, z), 0.03, 8)
-    cyl(i, (x, yb + 0.06 + y, z), 0.12, 0.05, 0.11, seg=10)
+    cyl(i, (x, yb + y, z), 0.06, 0.09, 0.09, seg=8)
+    tube(i, [(x - 0.42, yb + 0.03 + y, z), (x + 0.42, yb + 0.03 + y, z)], 0.018, 4)  # the lamplighter's ladder bar
+    for s in (-1, 1): sphere(i, (x + s * 0.43, yb + 0.03 + y, z), 0.03, 4)
+    cyl(i, (x, yb + 0.06 + y, z), 0.12, 0.05, 0.11, seg=8)
     # lantern: four tapered panes, framed
     y0, y1 = yb + 0.18, yb + 0.62
     cyl('lamp_glass', (x, y0 + y, z), y1 - y0, 0.13, 0.2, seg=4, cap=True)
     for k in range(4):
         a = k * math.pi / 2 + math.pi / 4
-        tube(i, [(x + math.cos(a) * 0.13, y0 + y, z + math.sin(a) * 0.13), (x + math.cos(a) * 0.2, y1 + y, z + math.sin(a) * 0.2)], 0.012)
+        tube(i, [(x + math.cos(a) * 0.13, y0 + y, z + math.sin(a) * 0.13), (x + math.cos(a) * 0.2, y1 + y, z + math.sin(a) * 0.2)], 0.012, 4)
     cyl(i, (x, y0 - 0.03 + y, z), 0.04, 0.15, 0.15, seg=4)
     cyl(i, (x, y1 + y, z), 0.05, 0.23, 0.23, seg=4)
     cyl(i, (x, y1 + 0.05 + y, z), 0.16, 0.24, 0.05, seg=4)  # crown
-    cyl(i, (x, y1 + 0.21 + y, z), 0.06, 0.04, 0.02, seg=6)
-    sphere(i, (x, y1 + 0.3 + y, z), 0.035, 8)
+    cyl(i, (x, y1 + 0.21 + y, z), 0.1, 0.04, 0.01, seg=6)  # the finial
     return Vector((x, (y0 + y1) / 2 + y, z))
 
 
@@ -358,8 +358,8 @@ def window(F, u, v, w=0.95, h=1.75, lit=None, frame_mat='trim_cream', hood='corn
 
 
 def corbel(F, mat, u, v_top, depth, width=0.12):
-    """A stepped bracket tapering down from v_top."""
-    for k, (a, b, d) in enumerate(((0.0, 0.1, 1.0), (0.1, 0.22, 0.7), (0.22, 0.34, 0.45), (0.34, 0.42, 0.25))):
+    """A stepped bracket tapering down from v_top. Two steps: there are hundreds along a street front."""
+    for a, b, d in ((0.0, 0.16, 1.0), (0.16, 0.42, 0.5)):
         lbox(F, mat, u - width / 2, u + width / 2, v_top - b, v_top - a, 0, depth * d)
 
 
@@ -398,7 +398,7 @@ def cornice(F, u0, u1, top, trim='trim_cream', depth=0.55):
     lbox(F, trim, u0 - 0.1, u1 + 0.1, top - 0.45, top - 0.35, 0, 0.18)
     lbox(F, trim, u0 - 0.15, u1 + 0.15, top - 0.2, top, 0, depth)
     lbox(F, trim, u0 - 0.12, u1 + 0.12, top - 0.28, top - 0.2, 0, depth * 0.75)
-    n = int((u1 - u0) / 0.85)
+    n = int((u1 - u0) / 1.0)
     for k in range(n + 1):
         u = u0 + 0.2 + k * (u1 - u0 - 0.4) / max(1, n)
         corbel(F, trim, u, top - 0.28, depth * 0.75, 0.1)

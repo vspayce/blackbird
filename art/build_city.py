@@ -130,10 +130,36 @@ def grand_front(F, u0, u1, name, wall, floors=6):
     """A big hotel front: a rusticated ground floor, a pillared entrance with a canopy, rows of windows."""
     h = 4.5 + floors * 3.4
     lbox(F, wall, u0, u1, 0, h, -0.3, 0)
-    lbox(F, 'trim_cream', u0, u1, 0, 4.4, 0, 0.12)
-    for v in np.arange(0.5, 4.4, 0.55):
-        lbox(F, 'trim_dark', u0, u1, v, v + 0.04, 0.12, 0.13)
     c = (u0 + u1) / 2
+    # the ground floor: rusticated stone piers between tall arched-head windows (the hotel's bar, its
+    # barber's, its offices), lit behind, on a granite plinth. (It was one blank slab of cream: a wall with
+    # grooves and nothing to look into.)
+    lbox(F, 'granite', u0, u1, 0, 0.55, 0, 0.2)
+    n = max(2, int((u1 - u0) / 4.4))
+    bw = (u1 - u0) / n
+    edges = [u0]
+    for k in range(n):
+        m = u0 + (k + 0.5) * bw
+        if abs(m - c) < 4.6: continue
+        a, b = m - 1.25, m + 1.25
+        edges += [a, b]
+        lit = 'glass_lit%d' % (k % 3) if (k * 7) % 5 < 3 else 'glass_dark'
+        lbox(F, lit, a, b, 0.55, 3.5, 0.02, 0.04)
+        lbox(F, 'roof', a, b, 0.55, 3.5, 0.0, 0.02)
+        lbox(F, 'trim_dark', a - 0.08, a, 0.55, 3.5, 0, 0.16)
+        lbox(F, 'trim_dark', b, b + 0.08, 0.55, 3.5, 0, 0.16)
+        lbox(F, 'trim_dark', m - 0.03, m + 0.03, 0.55, 3.5, 0, 0.1)          # mullion
+        lbox(F, 'trim_dark', a, b, 2.7, 2.76, 0, 0.1)                       # transom
+        lbox(F, 'sandstone', a - 0.2, b + 0.2, 3.5, 3.9, 0, 0.17)            # flat arch
+        lbox(F, 'trim_cream', m - 0.22, m + 0.22, 3.45, 4.0, 0, 0.24)       # keystone
+        lbox(F, 'sandstone', a - 0.15, b + 0.15, 0.55, 0.68, 0, 0.26)       # sill
+    edges.append(u1)
+    for a, b in sorted(zip(edges[::2], edges[1::2])):  # the rusticated piers between the windows
+        if b - a < 0.05: continue
+        lbox(F, 'sandstone', a, b, 0.55, 4.4, 0, 0.12)
+        for v in np.arange(1.0, 4.4, 0.55):
+            lbox(F, 'trim_dark', a, b, v, v + 0.04, 0.12, 0.13)
+    lbox(F, 'trim_cream', u0, u1, 4.3, 4.5, 0, 0.3)                          # the ground floor's cornice
     # the entrance: glazed doors between columns, a canopy, the name in gilt
     lbox(F, 'glass_lit0', c - 2.5, c + 2.5, 0.2, 3.6, 0.13, 0.15)
     for k in (-1, 1):
@@ -155,12 +181,28 @@ def grand_front(F, u0, u1, name, wall, floors=6):
         for k in range(n):
             u = u0 + (k + 0.5) * (u1 - u0) / n
             if abs(u - c) < 1.5 and f == 0: continue
-            window(F, u, v, w=1.0, h=2.0, frame_mat='trim_cream', hood='cornice' if f % 2 == 0 else 'lintel')
+            if f == 0:
+                window(F, u, v, w=1.0, h=2.0, frame_mat='trim_cream', hood='cornice')
+            else:
+                window_lite(F, u, v, 1.0, 2.0, hood=f % 2 == 0)
         lbox(F, 'trim_cream', u0, u1, v - 0.5, v - 0.36, 0, 0.12)
     cornice(F, u0, u1, h, 'trim_cream', depth=0.8)
 
 
-SUTTER_RUN = 112
+def window_lite(F, u, v, w, h, hood=False):
+    """A sash window in four boxes, for the upper floors of the big fronts (seen from the pavement, steeply
+    and through fog): glass in a flat surround, the sill, a meeting rail, and a hood on alternate floors."""
+    lit = rnd.random() < 0.18
+    lbox(F, 'trim_cream', u - w / 2 - 0.09, u + w / 2 + 0.09, v, v + h + 0.09, 0, 0.05)
+    lbox(F, f'glass_lit{rnd.randrange(3)}' if lit else 'glass_dark', u - w / 2, u + w / 2, v + 0.02, v + h, 0.05, 0.06)
+    lbox(F, 'trim_cream', u - w / 2, u + w / 2, v + h / 2 - 0.03, v + h / 2 + 0.03, 0.05, 0.08)
+    lbox(F, 'stone', u - w / 2 - 0.15, u + w / 2 + 0.15, v - 0.08, v, 0, 0.14)
+    if hood:
+        lbox(F, 'trim_cream', u - w / 2 - 0.18, u + w / 2 + 0.18, v + h + 0.09, v + h + 0.22, 0, 0.16)
+
+
+SUTTER_RUN = 112    # the cable car's run either side of Kearny
+SUTTER_FRONTS = 62  # fronts down Sutter only this far: FogExp2 0.042 leaves nothing visible past ~50 m
 
 
 def sutter_view():
@@ -171,7 +213,7 @@ def sutter_view():
     k = 0
     for side in (-1, 1):
         x = side * FACE
-        while abs(x) < SUTTER_RUN:
+        while abs(x) < SUTTER_FRONTS:
             w = 14 + (k * 7) % 9
             x1 = x + side * w
             h = [9, 12, 8, 11, 10][k % 5]
@@ -228,9 +270,9 @@ def street_furniture():
     PLACES['jeweller'] = jeweller_window()
 
 
-def hack(x, z, rot):
+def hack(x, z, rot, y=0.0):
     """A one-horse hansom-style cab, waiting (the horses are left to the imagination of the fog)."""
-    F = Matrix.Translation((x, 0, z)) @ Matrix.Rotation(rot, 4, 'Y')
+    F = Matrix.Translation((x, y, z)) @ Matrix.Rotation(rot, 4, 'Y')
     lbox(F, 'carriage_black', -0.65, 0.65, 0.75, 2.0, -0.8, 0.7)
     lbox(F, 'carriage_black', -0.7, 0.7, 2.0, 2.07, -0.85, 0.75)
     lbox(F, 'carriage_black', -0.4, 0.4, 2.07, 2.6, 0.5, 0.9)              # the driver's perch behind
@@ -349,4 +391,5 @@ def preview(path):
         bpy.ops.render.render(write_still=True)
 
 
-main()
+if __name__ == '__main__':  # the hotels borrow hack() for the cab under their windows
+    main()
