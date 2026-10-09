@@ -1,7 +1,10 @@
 // Conversations: a greeting, then a list of topics. Tap to advance a line.
 // Some answers can be challenged, L.A. Noire style: Believe, Press, or Prove a
 // lie with a fact from the casebook. Each challenge is called once.
-import { TALK, PEOPLE, CLUES, DEDUCTIONS } from '../cases/current.js';
+// A line may carry options as a third element: { tell } is a giveaway seen only in Focus, and { present } lets
+// Holmes cut in while it is being said and show the fact that breaks it (Chapter III):
+//   present: { id, evidence: [clue or deduction ids], gives, right: [lines], wrong: [lines] }
+import { TALK, PEOPLE, CLUES, DEDUCTIONS, CHAPTER } from '../cases/current.js';
 
 const $ = id => document.getElementById(id);
 const CALLS = [['truth', 'Believe', 'Take it as the truth'], ['doubt', 'Press', 'Something is held back'], ['lie', 'Prove a lie', 'Show the fact that breaks it']];
@@ -13,6 +16,10 @@ export class Dialogue {
     this.line = this.el.querySelector('.line');
     this.tell = this.el.querySelector('.tell');
     this.choices = this.el.querySelector('.choices');
+    // buttons used while a line is being said (Focus, Present evidence); kept apart from the topic choices
+    this.inline = document.createElement('div');
+    this.inline.className = 'inline';
+    this.tell.after(this.inline);
     this.queue = [];
     this.asked = new Set();
     this.el.addEventListener('click', e => { if (!e.target.closest('button')) this.next(); });
@@ -41,12 +48,59 @@ export class Dialogue {
       if (this.then) { const t = this.then; this.then = null; t(); }
       return;
     }
-    const [who, text] = this.queue.shift();
+    const [who, text, opts] = this.queue.shift();
+    this.cur = opts ?? null;
     this.speaker(who);
     this.line.textContent = text;
     this.line.classList.remove('in'); void this.line.offsetWidth; this.line.classList.add('in');
     this.el.classList.add('reading');
+    this.lineTools();
   }
+
+  // while a line is said: its tell (in Focus only), a Focus toggle, and Present evidence when it can be broken
+  lineTools() {
+    this.inline.innerHTML = '';
+    const o = this.cur, h = this.hooks;
+    const focus = h?.focus?.() ?? false;
+    if (!this.judging) this.setTell(o?.tell && focus ? o.tell : '');
+    if (!CHAPTER.focusTalk || !h) return;
+    const mk = (label, cls, fn) => {
+      const b = document.createElement('button');
+      b.className = cls; b.textContent = label;
+      b.onclick = e => { e.stopPropagation(); fn(); };
+      this.inline.appendChild(b);
+    };
+    mk(focus ? '◉ Focus' : '○ Focus', 'focus' + (focus ? ' on' : ''), () => { h.toggleFocus?.(); this.lineTools(); });
+    if (o?.present && !(('p:' + o.present.id) in h.state.calls)) mk('Present evidence', 'present', () => this.present(o.present));
+  }
+
+  // cut in mid-speech with a fact
+  present(p) {
+    const { state } = this.hooks;
+    const rest = this.queue, then = this.then;
+    this.inline.innerHTML = '';
+    this.choices.innerHTML = '';
+    this.setTell('Which fact gives the lie to what she is saying?');
+    this.el.classList.add('judging'); this.judging = true;
+    const done = right => {
+      this.el.classList.remove('judging'); this.judging = false;
+      state.calls['p:' + p.id] = right; state.save();
+      this.hooks.onCall(right);
+      if (right) this.play(p.right, () => { if (p.gives) this.hooks.onGive(p.gives); then?.(); });
+      else this.play([...p.wrong, ...rest], then);  // the lie goes on
+    };
+    for (const id of [...state.clues, ...state.deductions]) {
+      const src = CLUES[id] ?? DEDUCTIONS[id];
+      this.button(src.title, 'fact', () => done(p.evidence.includes(id)));
+    }
+    this.button('Let her go on…', 'bye', () => {
+      this.el.classList.remove('judging'); this.judging = false;
+      this.choices.innerHTML = ''; this.lineTools();
+    });
+  }
+
+  // Focus was switched on or off: show or hide the tell on the current line
+  refresh() { if (!this.el.classList.contains('hidden') && this.el.classList.contains('reading')) this.lineTools(); }
 
   speaker(who) {
     this.who.textContent = who;
@@ -71,6 +125,7 @@ export class Dialogue {
 
   menu() {
     this.el.classList.remove('reading');
+    this.inline.innerHTML = ''; this.cur = null;
     const { state } = this.hooks;
     this.speaker(PEOPLE[this.person].name);
     this.line.textContent = '';
@@ -102,8 +157,10 @@ export class Dialogue {
   challenge(key, c) {
     this.el.classList.remove('reading');
     this.el.classList.add('judging');
-    this.setTell(c.tell);
+    this.inline.innerHTML = '';
+    this.setTell(c.focusTell && !this.hooks.focus?.() ? 'Something in her manner. Focus to read it.' : c.tell);
     this.choices.innerHTML = '';
+    if (c.focusTell && CHAPTER.focusTalk) this.button(this.hooks.focus?.() ? '◉ Focus' : '○ Focus', 'focus', () => { this.hooks.toggleFocus?.(); this.challenge(key, c); });
     for (const [id, label, sub] of CALLS) {
       this.button(label, 'call ' + id, () => id === 'lie' ? this.evidence(key, c) : this.resolve(key, c, id === c.answer), sub);
     }
@@ -134,7 +191,8 @@ export class Dialogue {
 
   close() {
     this.el.classList.add('hidden');
-    this.el.classList.remove('judging');
+    this.el.classList.remove('judging'); this.judging = false;
+    this.inline.innerHTML = '';
     this.hooks?.onClose();
   }
 }

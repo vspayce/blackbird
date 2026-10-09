@@ -87,3 +87,8 @@ between devices. Continue on the title resumes the latest save.
 
 `art/build_palace.py` builds Holmes's suite at the Palace Hotel (it borrows the
 Hopkins builder's furniture). Chapter II: `?chapter=2`.
+
+## The St. Mark Hotel (Chapter III)
+
+`art/build_stmark.py` builds Brigid O'Shaughnessy's suite (it borrows the Hopkins
+and Palace builders' pieces). Chapter III: `?chapter=3`.

@@ -213,6 +213,8 @@ class Game {
       scenes: [
         ['Chapter I · Burritt Alley', './'],
         ['Chapter I, skip the intro', '?skip=1'],
+        ['Chapter II · The Levantine', '?chapter=2'],
+        ['Chapter III · The St. Mark', '?chapter=3'],
         ['Chapter IV · The Fat Man', '?chapter=4'],
         ['Chapter V · The Gunsel', '?chapter=5'],
         ['The Mark Hopkins Institute (free roam)', '?scene=hopkins'],
@@ -381,10 +383,11 @@ class Game {
   }
 
   toggleFocus() {
-    if (!['explore', 'closeup'].includes(this.mode) && !this.focusOn) return;
+    if (!['explore', 'closeup', 'talk'].includes(this.mode) && !this.focusOn) return;
     if (!this.focusOn && this.meter < 0.15) { this.hud.say('My eyes need a moment\'s rest.'); return; }
     this.focusOn = !this.focusOn;
     audio.focus(this.focusOn);
+    if (this.mode === 'talk') this.dialogue.refresh();
   }
 
   // nearest thing worth doing from where Holmes stands
@@ -593,6 +596,8 @@ class Game {
       onCall: right => { right ? audio.deduce() : audio.wrong(); this.hud.toast(right ? 'right' : 'wrong', right ? 'You read them right' : 'You misjudged them'); },
       onClose: () => { this.people[id].fig.setTalking(false); this.setMode('explore'); },
       onEvent: name => this.runEvent(name),
+      focus: () => this.focusOn,
+      toggleFocus: () => this.toggleFocus(),
     });
   }
 
@@ -933,8 +938,8 @@ class Game {
 
     // Focus: drains while on, refills while off; the world slows around Holmes
     if (this.focusOn) {
-      this.meter = Math.max(0, this.meter - dt * 0.1);
-      if (this.meter === 0) { this.focusOn = false; audio.focus(false); this.hud.say('Enough. The mind must rest.'); }
+      this.meter = Math.max(0, this.meter - dt * (this.mode === 'talk' ? 0.04 : 0.1));  // reading a face is slower work
+      if (this.meter === 0) { this.focusOn = false; audio.focus(false); this.hud.say('Enough. The mind must rest.'); this.dialogue.refresh(); }
     } else this.meter = Math.min(1, this.meter + dt * 0.08);
     this.focus = damp(this.focus, this.focusOn || ['portrait', 'fight'].includes(this.mode) ? 1 : 0, 5, dt);
     const wdt = dt * (1 - 0.7 * this.focus);

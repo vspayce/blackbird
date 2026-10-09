@@ -2,7 +2,9 @@
 // Saved per browser; the game works the same if storage is unavailable.
 import { CHAPTER, CLUES, DEDUCTIONS, CONCLUSION, TALK, objective } from '../cases/current.js';
 
-const CHALLENGES = Object.values(TALK).flatMap(t => t.topics).filter(t => t.challenge).length;
+const topics = Object.values(TALK).flatMap(t => t.topics);
+// the calls to be made: challenges after an answer, and lies that can be broken mid-speech (a line's { present })
+const CHALLENGES = topics.filter(t => t.challenge).length + topics.flatMap(t => t.a).filter(l => l[2]?.present).length;
 
 const KEY = `blackbird.${CHAPTER.id}.v1`;
 

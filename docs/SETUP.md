@@ -142,7 +142,8 @@ zips from `files2.makehumancommunity.org/asset_packs/...`:
 | Pack | Licence | Used for |
 |---|---|---|
 | `makehuman_system_assets` | CC0 | eyes, eyebrows, eyelashes, short hair, shoes, proxies |
-| `suits01` | CC0 | `toigo_male_suit_3`, the base suit for everyone |
+| `suits01` | CC0 | `toigo_male_suit_3`, the base suit for everyone; `toigo_female_suit` (Brigid) |
+| `hair01` | CC0 | `elvs_reverse_french_braid_bun` (Brigid) |
 | `skins02` | CC0 | male skin textures |
 | `eyebrows01` | CC0 | extra eyebrows |
 | `bodyparts05` | CC0 | beards and moustaches |

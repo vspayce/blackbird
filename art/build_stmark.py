@@ -141,7 +141,7 @@ def main():
                               export_draco_mesh_compression_level=7, export_cameras=False, export_lights=False)
     with open(os.path.join(ROOT, 'public', 'models', 'stmark.json'), 'w') as f:
         json.dump(dict(colliders=bh.COLLIDERS, lamps=[[round(v, 3) for v in p] for p in bh.LAMPS], places=PLACES,
-                       spawn=dict(pos=[0, 0, 4.0], yaw=0.0)), f, separators=(',', ':'))
+                       spawn=dict(pos=[0.3, 0, 1.6], yaw=math.pi)), f, separators=(',', ':'))
     if RENDER: preview(RENDER)
 
 

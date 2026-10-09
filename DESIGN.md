@@ -65,6 +65,15 @@ three moves (step inside the gun arm, strike the wrist, elbow to the jaw); a pla
 him breaks, with the reason. Then his pockets (three passports, a theatre ticket, the arrivals from Hong Kong)
 and two lies to catch. The question: why did Cairo search your rooms?
 
+**Chapter III at the St. Mark** *(built, `src/cases/brigid.js`, set `art/build_stmark.py`)*. The morning after
+Floyd Thursby is shot in Geary Street, "Miss Wonderly" is packing to leave the St. Mark. In conversation you can
+turn **Focus** on: some of her lines show a tell only then (her eyes go to the desk; to the fender; her left glove
+twists). While a lying line is being said, **Present evidence** cuts in with the fact that breaks it: the letters
+addressed to Brigid O'Shaughnessy, her mud-caked boots, the Hong Kong steamer label. Each can be tried once; a
+wrong fact lets the lie run on. Pressing her (with the tell in Focus) gives the rest: no sister, and a boy in a cap
+who fired twice and walked away. The question: who shot Thursby? Not Cairo (Holmes was behind him at the Geary
+Theatre); the fat man's gunman. A burnt shipping column in the grate names the La Paloma.
+
 **Chapter IV and the Hopkins Institute** *(built, `src/cases/gutman.js`)*. In 1895 the Hopkins mansion on Nob
 Hill was the San Francisco Art Association's school and gallery. Gutman's note summons Holmes there at ten.
 Wilmer guards the porte-cochere (catch his lie with the warm carriage); Mr. Wren, the keeper (invented),
@@ -273,6 +282,7 @@ the traps we hit are in `docs/SETUP.md`.
 - **Sets**: Burritt Alley 53k triangles, 1.5 MB; the Hopkins Institute and its
   street 112k triangles, 3.5 MB, plus `hopkins.json` (colliders, rooms, lamps,
   interactions, ground levels).
+- Chapter III adds Brigid O'Shaughnessy (the first woman: a builder-made bell skirt over the MakeHuman jacket).
 - Chapter IV adds Gutman, Wilmer and Wren.
 - Still to model. Cast: Brigid, Cairo, Jacobi, Effie
   (Archer's secretary). Places: Archer's office (Sutter St.), the Palace
@@ -293,6 +303,6 @@ the traps we hit are in `docs/SETUP.md`.
 6. ✅ Chapter IV at the Hopkins Institute (Gutman, Wilmer, Wren; the reconstruction).
 7. ✅ Chapter V on Kearny Street (tailing, the Sutter Street cable car); save slots, pause menu, save codes.
 8. ✅ Chapter II at the Palace Hotel (character portrait, fight prediction); the cab ride between chapters.
-9. Focus tells and presenting evidence mid-speech (Ch. III).
+9. ✅ Chapter III at the St. Mark (Brigid; Focus tells and presenting evidence mid-speech).
 10. Chapters VI (La Paloma) and VII (The Black Bird).
 11. PWA install, localisation; a tvOS build (Unity) if it goes to the App Store.

@@ -419,3 +419,11 @@ body[data-mode=talk] #tail { display: none; }
 .fight .go { display: flex; gap: 8px; margin-top: 10px; }
 body[data-mode=portrait] #top-btns, body[data-mode=portrait] #btn-focus, body[data-mode=portrait] #objective,
 body[data-mode=portrait] #btn-act, body[data-mode=portrait] #desk-hint, body[data-mode=portrait] #pad-hint { display: none !important; }
+/* while a line is said: Focus and Present evidence (Chapter III) */
+#dialogue .inline { display: flex; gap: 8px; margin-top: 10px; }
+#dialogue .inline:empty { display: none; }
+#dialogue .inline button { background: rgba(8,10,14,0.82); border: 1px solid rgba(233,220,184,0.35); color: var(--paper);
+  font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 3px; cursor: pointer; }
+#dialogue .inline button.on { border-color: var(--focus); color: var(--focus); }
+#dialogue .inline button.present { border-color: #c9a04a; color: #f0d48a; animation: presentPulse 1.6s ease-in-out infinite; }
+@keyframes presentPulse { 50% { box-shadow: 0 0 12px rgba(240,212,138,0.45); } }
