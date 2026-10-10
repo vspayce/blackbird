@@ -52,6 +52,24 @@ def build():
               sign_mat='sign_board_red' if 'BELVEDERE' in sign else 'sign_board',
               lit=True if 'BELVEDERE' in sign else None)  # the saloon where Thursby drinks is open all night
 
+    # --- Bush Street on past the ends of the walkable street (alley.js stops you at |x| = 28.5), into the fog:
+    # paving under it and a front or two each side, so the view down the street is not into the void
+    for sx in (-1, 1):
+        wbox('stone', min(sx * 30, sx * 50), max(sx * 30, sx * 50), -0.02, 0.0, 8, 22)
+        wbox('brick_brown' if sx < 0 else 'clap_grey', min(sx * 28, sx * 46), max(sx * 28, sx * 46), 0, 10, -6, 8)
+        wbox('brick_tan' if sx < 0 else 'brick_red', min(sx * 30, sx * 46), max(sx * 30, sx * 46), 0, 11, 22, 30)
+        x0 = 28 if sx > 0 else -44
+        front(frame((0, 0, 8), (1, 0, 0), (0, 0, 1)), x0 + 0.2, x0 + 15.8, 10,
+              'brick_brown' if sx < 0 else 'clap_grey', 'trim_dark', 'BOOTS & SHOES' if sx < 0 else 'COFFEE HOUSE',
+              floors=(4.6, 7.8))
+        xf = 46 if sx > 0 else -30
+        front(frame((xf, 0, 22), (-1, 0, 0), (0, 0, -1)), 0.2, 15.8, 11, 'brick_tan' if sx < 0 else 'brick_red',
+              'trim_cream', 'ASSAY OFFICE' if sx < 0 else 'PAWNBROKER', floors=(4.6, 7.8))
+        # where Bush Street bends out of sight: a front across its end, closing the view
+        wbox('clap_cream', min(sx * 50, sx * 58), max(sx * 50, sx * 58), 0, 12, 6, 24)
+        Fe = frame((50, 0, 8), (0, 0, 1), (-1, 0, 0)) if sx > 0 else frame((-50, 0, 22), (0, 0, -1), (1, 0, 0))
+        front(Fe, 0.2, 13.8, 12, 'clap_cream', 'trim_dark', 'LODGINGS', floors=(4.6, 7.8))
+
     # --- the alley walls ---
     L = frame((-2.5, 0, 8), (0, 0, -1), (1, 0, 0))   # left wall faces +x; u runs from the street toward the fence
     R = frame((2.5, 0, -22), (0, 0, 1), (-1, 0, 0))  # right wall faces -x; u runs from the fence toward the street

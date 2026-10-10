@@ -8,7 +8,7 @@ import { gltfLoader } from '../core/gltf.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const models = new Map();
-const WALK_CLIP_SPEED = 1.45;  // m/s covered by one play of the Walk clip at timeScale 1
+const WALK_CLIP_SPEED = 1.45;  // m/s covered by one play of the Walk clip at timeScale 1 (if the model doesn't say)
 
 // Load models before building figures; a missing model falls back to primitives.
 export function loadModels(names) {
@@ -19,12 +19,16 @@ export function loadModels(names) {
 
 function fromSkinned(gltf) {
   const root = SkeletonUtils.clone(gltf.scene);
+  let clipSpeed = WALK_CLIP_SPEED;
   root.traverse(m => {
+    // the builder measures how fast its Walk clip carries the body (the planted foot's speed) and stores it
+    if (m.userData.walk_speed) clipSpeed = m.userData.walk_speed;
     if (!m.isMesh) return;
     m.frustumCulled = false;  // skinned bounds don't follow the clips
     const mat = m.material;
-    if (mat.transparent) {  // hair, brows and lashes: cut-out, not sorted blending
+    if (mat.transparent || mat.alphaTest > 0) {  // hair, brows and lashes: cut-out, not sorted blending
       mat.transparent = false; mat.alphaTest = 0.45; mat.depthWrite = true;
+      mat.alphaToCoverage = true;  // soft cut-out edges with the multisampled target
     }
   });
   const mixer = new THREE.AnimationMixer(root);
@@ -42,7 +46,7 @@ function fromSkinned(gltf) {
       const walk = Math.min(1, speed / 0.9);
       talk += ((talking ? 1 : 0) - talk) * Math.min(1, dt * 4);
       act.Walk?.setEffectiveWeight(walk);
-      if (act.Walk) act.Walk.timeScale = Math.max(0.5, speed / WALK_CLIP_SPEED);
+      if (act.Walk) act.Walk.timeScale = Math.max(0.5, speed / clipSpeed);
       act.Talk?.setEffectiveWeight((1 - walk) * talk);
       act.Idle?.setEffectiveWeight((1 - walk) * (1 - talk));
       mixer.update(dt);
@@ -115,6 +119,9 @@ function hat(type, color) {
     crown.scale.set(1, 1.05, 1.08);
     g.add(crown);
     g.add(mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.012, 16), m, 0, 0.004, 0));
+  } else if (type === 'tophat') {
+    g.add(mesh(new THREE.CylinderGeometry(0.1, 0.095, 0.17, 14), m, 0, 0.085, 0));
+    g.add(mesh(new THREE.CylinderGeometry(0.155, 0.155, 0.01, 16), m));
   } else if (type === 'helmet') {
     const crown = mesh(new THREE.SphereGeometry(0.13, 12, 10, 0, Math.PI * 2, 0, Math.PI / 1.7), m);
     crown.scale.set(1, 1.5, 1.1);
@@ -213,9 +220,9 @@ function withAnimation(parts) {
     torso.rotation.x = 0.03 * walk + Math.sin(t * 1.3) * 0.012 * (1 - walk);
   }
 
-  // the body in the alley: on his back, arms flung out
+  // the body in the alley: on his back, arms fallen loose at his sides
   function lieBack() {
-    arms[0].rotation.z = -0.9; arms[1].rotation.z = 0.7;
+    arms[0].rotation.z = -0.3; arms[1].rotation.z = 0.25;
     legs[0].rotation.z = -0.08; legs[1].rotation.z = 0.1;
     head.rotation.z = 0.35;
   }

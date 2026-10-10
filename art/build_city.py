@@ -66,7 +66,45 @@ def street_surface():
             if z == -132.5: wbox('roof', x0, x1, -0.15, -0.14, z - 0.015, z + 0.015)
             else: wbox('iron', x0, x1, -0.15, -0.13, z - 0.04, z + 0.04)
     collide(-FACE, 0, z0 - 0.5, FACE, 4, z0)                    # Market Street end
+    for s in (-1, 1):                                           # and the corners: Kearny's mouth only
+        collide(min(s * FACE, s * (FACE + 1)), 0, BLOCKS[0][0], max(s * FACE, s * (FACE + 1)), 4, z0)
+    market_street(z0)
     collide(-FACE, 0, z1, FACE, 4, z1 + 0.5)                    # Bush Street end
+
+
+def market_street(z_end):
+    """Market Street across the south end, so the corner looks onto a street and not the void: the roadway with
+    its cable slots, the far sidewalk, and a row of fronts over the way, fading in the fog. Kearny's own walkable
+    end stops at z_end."""
+    za = BLOCKS[0][0]
+    wbox('asphalt', -70, 70, -0.2, -0.15, za, za + 34)
+    for x0, x1 in ((-70, -ROAD), (ROAD, 70)):
+        wbox('flags', x0, x1, -0.15, 0.0, za, za + 3.5)          # the near sidewalk, round the corners
+    wbox('flags', -70, 70, -0.15, 0.0, za + 30, za + 34)
+    wbox('granite', -70, 70, -0.2, 0.0, za + 29.7, za + 30)
+    for z in (za + 14.0, za + 15.5, za + 17.5, za + 19.0):
+        wbox('iron', -70, 70, -0.15, -0.13, z - 0.04, z + 0.04)
+    walls = ['brick_brown', 'sandstone', 'brick_red', 'clap_grey', 'brick_tan']
+    x = -45.0
+    for k, (w, h) in enumerate(((16, 14), (12, 11), (14, 17), (13, 12), (16, 15), (15, 13))):
+        F = frame((x + w, 0, za + 34), (-1, 0, 0), (0, 0, -1))
+        # 30 m off in the fog: lit shopfronts, rows of plain sashes and a cornice are all that read from here
+        lbox(F, 'roof', 0.3, w - 0.3, 0, 3.4, 0, 0.05)
+        for u in np.arange(1.0, w - 1.0, 3.2):
+            lbox(F, 'glass_lit%d' % (k % 3) if (k + int(u)) % 3 else 'glass_dark', u, u + 2.4, 0.6, 3.0, 0.05, 0.07)
+        lbox(F, 'sign_board' if k % 2 else 'sign_board_red', 0.2, w - 0.2, 3.4, 4.1, 0, 0.2)
+        for fv in (4.8, 8.0, 11.2):
+            if fv > h - 2.4: break
+            for u in np.arange(1.4, w - 1.0, 2.6):
+                window_lite(F, u, fv, 1.0, 1.9)
+        lbox(F, 'trim_cream', -0.1, w + 0.1, h - 0.6, h, 0, 0.5)
+        wbox(walls[k % 5], x, x + w, 0, h, za + 34, za + 46)
+        x += w
+    for xl in (-30, -12, 12, 30):
+        LAMPS.append(list(gas_lamp(xl, za + 29.2)))
+    # the block east of Kearny on Market: its south face
+    F = frame((FACE, 0, za), (1, 0, 0), (0, 0, 1))
+    front(F, 0.15, 19.85, 12, 'brick_red', 'trim_cream', 'HOTEL & RESTAURANT', bays=(10.0,), floors=(4.6, 7.8))
 
 
 SIGNS_W = ['GUMP\'S · ART GOODS', 'WESTERN UNION TELEGRAPH', 'MILLINERY', 'OYSTER GROTTO', 'CIGARS · TOBACCO',
@@ -91,12 +129,16 @@ def block_fronts():
                 grand_front(F, 0, L, 'THE PALACE HOTEL', 'sandstone', floors=6)
                 wbox('sandstone', -FACE - 30, -FACE, 0, 26, zb, za)
                 PLACES['palace'] = [-FACE + 1.5, 0, za - 10]
+                collide(-FACE - 30, 0, zb, -FACE, 26, za)
+                # its Market Street front, seen from the corner
+                grand_front(frame((-FACE - 30, 0, za), (1, 0, 0), (0, 0, 1)), 0, 30, 'THE PALACE HOTEL', 'sandstone', floors=6)
                 continue
             if bi == 2 and side > 0:
                 grand_front(F, 0, L, 'THE ALEXANDRIA', 'brick_tan', floors=5)
                 wbox('brick_tan', FACE, FACE + 30, 0, 22, zb, za)
                 door = F @ Vector((L / 2, 0, 0))
                 PLACES['alexandria'] = [round(door.x - 2.2, 2), 0, round(door.z, 2)]
+                collide(FACE, 0, zb, FACE + 30, 22, za)
                 continue
             cuts = [0, L * 0.3, L * 0.55, L * 0.8, L] if (bi + side) % 2 else [0, L * 0.35, L * 0.7, L]
             for a, b in zip(cuts, cuts[1:]):
@@ -268,6 +310,7 @@ def street_furniture():
         wbox('trim_dark', ROAD + 1.5, ROAD + 2.1, 0, 1.1, z - 0.3, z + 0.3)
         collide(ROAD + 1.5, 0, z - 0.3, ROAD + 2.1, 1.1, z + 0.3)
     PLACES['jeweller'] = jeweller_window()
+    sutter_corner_cover()
 
 
 def hack(x, z, rot, y=0.0):
@@ -306,6 +349,28 @@ def jeweller_window():
 
 
 SUTTER_Z = -132.5
+
+
+def sutter_corner_cover():
+    """Cover for following the boy across Sutter: he cuts over the intersection to the west sidewalk and looks
+    back from (-8.6, -152); there was nothing to stand behind between the lamp at -144 and the far side. A
+    newsboy's stand on the north-west corner, and a cab waiting at the kerb just past it (clear of the cable
+    car's line at z -133.75..-131.25 and of the boy's own path)."""
+    x, z = -9.3, -138.6
+    lbox(Matrix.Translation((x, 0, z)), 'door_wood', -0.7, 0.7, 0, 1.0, -0.45, 0.45)      # the stand
+    lbox(Matrix.Translation((x, 0, z)), 'sign_board_red', -0.75, 0.75, 1.0, 1.05, -0.5, 0.5)
+    for k in range(4):                                                                   # papers in piles
+        lbox(Matrix.Translation((x - 0.5 + k * 0.33, 1.05, z)), 'paint_faded', -0.14, 0.14, 0, 0.05 + 0.02 * k, -0.2, 0.2)
+    for u in (-0.68, 0.68):
+        tube('iron', [(x + u, 1.05, z - 0.45), (x + u, 2.3, z - 0.45)], 0.02, 4)
+    lbox(Matrix.Translation((x, 2.3, z - 0.2)), 'awning', -0.85, 0.85, 0, 0.05, -0.45, 0.6)  # its canopy
+    lbox(Matrix.Translation((x, 1.6, z + 0.46)), 'paint_faded', -0.55, 0.55, 0, 0.6, 0, 0.01)  # the day's bill
+    collide(x - 0.75, 0, z - 0.5, x + 0.75, 2.3, z + 0.5)
+    cover(x + 0.4, z + 1.1, 'stand')
+    cover(x + 1.2, z, 'stand')
+    hack(-4.8, -143.0, 0.0)
+    cover(-4.8, -141.1, 'cab')
+    cover(-3.4, -143.0, 'cab')
 
 
 def cable_car():
@@ -365,7 +430,7 @@ def main():
                               export_draco_mesh_compression_level=7, export_cameras=False, export_lights=False)
     with open(os.path.join(ROOT, 'public', 'models', 'kearny.json'), 'w') as f:
         json.dump(dict(colliders=COLLIDERS, lamps=[[round(v, 3) for v in p] for p in LAMPS], cover=COVER,
-                       places=PLACES, spawn=dict(pos=[-8.6, 0, -2.0], yaw=0.0),
+                       places=PLACES, spawn=dict(pos=[-8.6, 0, -2.0], yaw=math.pi),
                        cablecar=dict(z=SUTTER_Z, x0=-SUTTER_RUN, x1=SUTTER_RUN, speed=4.5, period=75, length=8.0, width=2.5)),
                   f, separators=(',', ':'))
     if RENDER: preview(RENDER)

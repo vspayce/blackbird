@@ -19,8 +19,8 @@ export const CHAPTER = {
   opening: 'Ten o\'clock, Watson, and the Hopkins house lit up like a lantern. Somewhere inside it is the Fat Man.',
   intro: [
     'San Francisco. December, 1895.',
-    'Three weeks since Miles Archer died in Burritt Alley.',
-    'Since then a Levantine named Joel Cairo has offered Holmes five thousand dollars for a black statuette of a bird, and Miss Wonderly has become Miss O\'Shaughnessy, and lied three more times.',
+    'Two nights since Miles Archer died in Burritt Alley, and one since Floyd Thursby died in Geary Street.',
+    'Since then a Levantine named Joel Cairo has offered Holmes five thousand dollars for a black statuette of a bird, and Miss Wonderly has become Miss O\'Shaughnessy, and lied four more times in a quarter of an hour.',
     'Everyone who wants the bird is afraid of one man. They call him the Fat Man. His name is Kasper Gutman.',
     'Tonight a note was left at the Palace Hotel. "The Hopkins Institute, ten o\'clock. Come alone. K. G."',
     ['Holmes', 'Alone, Watson. So of course you will come.'],
@@ -35,8 +35,8 @@ export const CLUES = {
   engravings: { kind: 'clue', title: 'Engravings of Malta', text: 'Valletta, the Grand Harbour, the Grand Master\'s palace: the Association\'s prints, handled tonight. Pencil notes in the margins in a large, careful hand: "1530. 1539. Algiers?"' },
   glove: { kind: 'clue', title: 'A blue kid glove', text: 'Fallen behind the cushion of the model\'s throne. A lady\'s, blue kid, and it smells of lavender water. Miss Wonderly wore blue gloves she would not take off.' },
   tribute: { kind: 'clue', title: 'The Knights\' rent', text: 'A history of the Order of St. John from the Association\'s library, marked at the page: in 1530 the Emperor gave Malta to the Knights for a yearly rent of one falcon.' },
-  shipping: { kind: 'clue', title: 'Shipping news', text: 'Folded small under the telescope: the Call\'s column of ships due from the Orient. One is ringed in pencil. La Paloma, from Hong Kong, due at the Embarcadero on Thursday.' },
-  telescope: { kind: 'clue', title: 'The telescope', text: 'Not pointed at the stars. It is trained low over the city, on the Pacific Mail wharf at the Embarcadero, and clamped there.' },
+  shipping: { kind: 'clue', title: 'Shipping news', text: 'Folded small under the telescope: the Call\'s column of ships due from the Orient. One is ringed in pencil. La Paloma, from Hong Kong, due at the Pacific Mail wharf on Thursday.' },
+  telescope: { kind: 'clue', title: 'The telescope', text: 'Not pointed at the stars. It is trained low over the city, on the Pacific Mail wharf at the foot of Brannan Street, and clamped there.' },
   curator: { kind: 'testimony', who: 'wren', title: 'Wren: Mr. Gutman', text: 'Gutman has read in the library every evening this week: the Knights of St. John, Charles the Fifth, the engravings of Malta. Once a young lady waited for him in the painting studio upstairs.' },
   visitor: { kind: 'testimony', who: 'wren', title: 'Wren: the lady', text: 'She was crying when they left. "I had it in Hong Kong. I had it in my hands." Gutman told her to hush.' },
   history: { kind: 'testimony', who: 'gutman', title: 'Gutman: the black bird', text: 'A falcon of gold crusted with jewels, sent by the Knights to the Emperor in 1539. Taken by corsairs, enamelled black, lost and found across Europe. Gutman has hunted it for seventeen years, and says it is "coming".' },
@@ -96,7 +96,7 @@ export const PEOPLE = {
   gutman: {
     name: 'Kasper Gutman', role: 'The Fat Man',
     note: 'Enormously fat, enormously polite. Has hunted the black bird across the world for seventeen years.',
-    pos: [13.2, 22, -12.4], face: [11.5, -9.5], leaves: 'drugged',
+    pos: [1.7, 22, 8.8], face: [0, 11.7], leaves: 'drugged',
     look: { model: 'gutman', coat: '#151515', trousers: '#2a2a2c', hair: '#3a3632', longCoat: true, height: 1.78 },
   },
 };
@@ -118,7 +118,7 @@ export const SPOTS = [
   { id: 'tribute', worldId: 'archive', label: 'The Association\'s library', clue: 'tribute', needs: ['curator'],
     early: 'Histories, catalogues, travels: the whole Association\'s library. Without knowing what Gutman read, I could be here a week.' },
   { id: 'telescope', worldId: 'telescope', label: 'The telescope', clue: 'telescope', after: 'drugged' },
-  { id: 'shipping', label: 'A newspaper under the telescope', pos: [12.6, 22.9, -13.1], r: 1.8, clue: 'shipping', after: 'drugged' },
+  { id: 'shipping', label: 'A newspaper under the telescope', pos: [1.1, 22.9, 8.1], r: 1.8, clue: 'shipping', after: 'drugged' },
   { id: 'view', worldId: 'view', say: 'The whole city in gaslight, down to the wharves. Somewhere down there a woman in blue gloves is lying to someone.' },
   { id: 'bedroom', worldId: 'bedroom', say: 'Mrs. Hopkins never slept here. She built it, furnished it, and went back East.' },
   { id: 'casts', worldId: 'casts', say: 'Plaster gods, Watson. The students draw them for a year before they are allowed a living model.' },
@@ -139,7 +139,7 @@ export const EVENTS = {
     fragments: [
       'Gutman pours. Two fingers of whisky for me, and his own glass from a different decanter.',
       'He talks of Kemidov and Constantinople, and watches the clock, not the city.',
-      'The lamps of the Embarcadero slide sideways down the window.',
+      'The lamps along East Street slide sideways down the window.',
       'Wilmer\'s hands under my arms. The stair turning, and turning, and turning.',
       'Engravings of Malta under my cheek. Gutman\'s voice, far off: "Thursday, Wilmer. Not before Thursday."',
     ],

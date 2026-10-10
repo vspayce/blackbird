@@ -105,9 +105,14 @@ export class Alley {
     // far side of Bush Street
     const far = [[-24, 9, plasterB], [-12, 13, brickR], [0, 10, plasterA], [12, 12, brickL], [24, 8, plasterB]];
     for (const [x, h, m] of far) this.box(12, h, 8, m, x, h / 2, 26);
-    // invisible ends of the street
-    this.colliders.push(new THREE.Box3(new THREE.Vector3(-31, 0, 8), new THREE.Vector3(-29, 10, 22)));
-    this.colliders.push(new THREE.Box3(new THREE.Vector3(29, 0, 8), new THREE.Vector3(31, 10, 22)));
+    // the ends of the street, where the fog takes it: deep enough that there is no slipping round the corner
+    // fronts at |x| = 28 into the dark behind them (the set's last fronts end at |x| = 44)
+    this.colliders.push(new THREE.Box3(new THREE.Vector3(-34, 0, -8), new THREE.Vector3(-28.5, 10, 30)));
+    this.colliders.push(new THREE.Box3(new THREE.Vector3(28.5, 0, -8), new THREE.Vector3(34, 10, 30)));
+    // the iron lamp posts and telegraph poles along Bush Street (burritt.glb), which Holmes walked through
+    for (const [x, z, r] of [[13, 9.6, 0.2], [-19, 9.6, 0.2], [7, 20.6, 0.2], [-13, 20.6, 0.2], [24, 20.6, 0.2], [-10, 9.5, 0.15], [10, 9.5, 0.15]]) {
+      this.colliders.push(new THREE.Box3(new THREE.Vector3(x - r, 0, z - r), new THREE.Vector3(x + r, 4, z + r)));
+    }
 
     // lit and dark windows on the street fronts
     const lit = new THREE.MeshBasicMaterial({ color: '#ffb25a' });

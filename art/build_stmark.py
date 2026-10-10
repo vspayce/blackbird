@@ -16,7 +16,7 @@ import os, sys, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_hopkins as bh
 from build_hopkins import *  # noqa: F401,F403
-from build_palace import paper, book, into_room, hotel_materials, door_leaf, corridor, street_view  # noqa: E402
+from build_palace import paper, book, into_room, hotel_materials, door_leaf, corridor, street_view, seat  # noqa: E402
 
 H2 = 3.8
 PLACES = {}
@@ -149,7 +149,7 @@ def furnish_suite():
     sphere('lamp_glass', F @ Vector((-0.45, 1.08, 0.05)), 0.075, 10)
     p = F @ Vector((-0.45, 1.1, 0.05)); LAMPS.append([round(p.x, 3), 1.15, round(p.z, 3)])
     collide(3.25, 0, -2.85, 3.95, 0.8, -1.55)
-    chair(2.9, -2.2, math.pi / 2, 'velvet_green')
+    seat(2.9, -2.2, math.pi / 2, 'velvet_green')
     for k in range(4):
         paper(3.55 + (k % 2) * 0.12, -2.45 + k * 0.15, 0.2 + k * 0.4, 0.16)
     PLACES['desk'] = [3.6, 0.9, -2.2]
@@ -195,7 +195,7 @@ def furnish_suite():
     fern(-3.9, -4.4, 0.9)
     gasolier(0, H2 - 0.05, 0, arms=4, drop=1.0, r=0.5)
     frame_painting(frame((4.5 - T / 2, 0, -4.2), (0, 0, 1), (-1, 0, 0)), 0.0, 1.5, 0.5, 0.6, 3)
-    PLACES['window'] = [-1.9, 1.6, -5.0]
+    PLACES['window'] = [1.9, 1.2, -4.4]  # the east window: room side, its marker on Holmes's floor, not behind Brigid
     PLACES['brigid'] = [-1.6, 0, -3.6]
     # Ellis Street below: the St. Mark's rooms are on the second floor; across the way, wooden flats and a shop.
     # The cab waiting at the far kerb is the one Holmes remarks on.
@@ -228,7 +228,7 @@ def main():
                               export_draco_mesh_compression_level=7, export_cameras=False, export_lights=False)
     with open(os.path.join(ROOT, 'public', 'models', 'stmark.json'), 'w') as f:
         json.dump(dict(colliders=bh.COLLIDERS, lamps=[[round(v, 3) for v in p] for p in bh.LAMPS], places=PLACES,
-                       spawn=dict(pos=[0.3, 0, 1.6], yaw=math.pi)), f, separators=(',', ':'))
+                       spawn=dict(pos=[0.3, 0, 1.6], yaw=math.pi, watson=[0.9, 0, -0.9])), f, separators=(',', ':'))
     if RENDER: preview(RENDER)
 
 

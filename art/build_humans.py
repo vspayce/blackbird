@@ -9,8 +9,8 @@
 #       bpy.ops.preferences.addon_enable(module='bl_ext.blender_org.mpfb'); bpy.ops.wm.save_userpref()"
 #
 # Needs the MPFB extension and these MakeHuman asset packs in its user data:
-# makehuman_system_assets, suits01, skins02, eyebrows01, bodyparts05 (CC0) and
-# hats03, bodyparts06 (CC-BY, credited in CREDITS.md).
+# makehuman_system_assets, suits01, skins01, skins02, eyebrows01, bodyparts05, gloves01 (CC0) and
+# hats03, hair02, bodyparts06 (CC-BY, credited in CREDITS.md).
 #
 # For each character: a MakeHuman body shaped by macros and face targets, the
 # game_engine rig, period clothes (MakeHuman suits recoloured, plus coats,
@@ -59,7 +59,7 @@ def hex01(h):
     return [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
 
 
-def bake_base_colour(obj, fn, rough=None):
+def bake_base_colour(obj, fn, rough=None, shaped=False):
     """Recolour a material's base-colour texture by rewriting its pixels (sRGB, 0-1) with fn(rgb, lum) -> rgb,
     and wire the texture straight to the shader, so the result survives glTF export."""
     import numpy as np
@@ -75,7 +75,7 @@ def bake_base_colour(obj, fn, rough=None):
         px = px.reshape(-1, 4)
         rgb = px[:, :3]
         lum = rgb @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
-        px[:, :3] = np.clip(fn(rgb, lum[:, None]), 0, 1)
+        px[:, :3] = np.clip(fn(rgb, lum, h, w) if shaped else fn(rgb, lum[:, None]), 0, 1)
         out = bpy.data.images.new(f'{obj.name}_{src.name}'.replace('.', '_'), w, h, alpha=True)
         out.pixels.foreach_set(px.ravel())
         out.pack()
@@ -104,6 +104,117 @@ def split_tint(obj, dark_hex, light_hex, threshold=0.5, rough=0.85):
     bake_base_colour(obj, fn, rough)
 
 
+def box_blur(a, r, wrap=False):
+    """Separable box blur of a 2D array, radius r texels (edges clamped, or wrapped for a tiling texture)."""
+    import numpy as np
+    for axis in (0, 1):
+        pad = [(0, 0), (0, 0)]; pad[axis] = (r + 1, r)
+        c = np.cumsum(np.pad(a, pad, mode='wrap' if wrap else 'edge'), axis=axis)
+        a = (np.take(c, range(2 * r + 1, c.shape[axis]), axis=axis) - np.take(c, range(0, c.shape[axis] - 2 * r - 1), axis=axis)) / (2 * r + 1)
+    return a
+
+
+def weave(h, w, kind='wool', seed=3):
+    """Cloth shading, about 1.0 on average: a fine twill with heathered yarn and a soft mottle, no stripes.
+    tweed adds a herringbone and coloured flecks."""
+    import numpy as np
+    rnd = np.random.default_rng(seed)
+    y, x = np.mgrid[0:h, 0:w]
+    yarn = rnd.random((h, w)).astype(np.float32)
+    mottle = box_blur(rnd.random((h, w)).astype(np.float32), 18, wrap=True)
+    mottle = (mottle - mottle.mean()) / (mottle.std() + 1e-6)
+    if kind == 'tweed':
+        band = (x // 8) % 2
+        diag = (((x + np.where(band, y, -y)) // 3) % 2).astype(np.float32)
+        k = 0.84 + 0.12 * diag + 0.16 * (yarn - 0.5) + 0.05 * mottle + np.where(yarn > 0.985, 0.25, 0)
+    else:
+        twill = (((x + y) // 2) % 2).astype(np.float32)
+        k = 0.95 + 0.05 * twill + 0.09 * (yarn - 0.5) + 0.035 * mottle
+    return k / k.mean()
+
+
+def reweave(obj, cloth_hex, light_hex=None, tie_hex=None, threshold=0.5, rough=0.85, kind='wool', cloth_rects=(),
+            tie_rects=()):
+    """Re-texture a MakeHuman suit atlas: the cloth panels (dark, unsaturated texels) become plain wool of one colour,
+    keeping only the broad shading of the original (no pinstripe); light panels become linen (the shirt) and the
+    patterned silk tie becomes tie_hex. cloth_rects: UV boxes (u0, v0, u1, v1) forced to cloth (a pocket square).
+    Replaces split_tint for the suits."""
+    import numpy as np
+    cloth, light = np.array(hex01(cloth_hex), np.float32), np.array(hex01(light_hex or '#e8e2d4'), np.float32)
+    def fn(rgb, lum, h, w):
+        img = rgb.reshape(h, w, 3)
+        l = lum.reshape(h, w)
+        sat = img.max(2) - img.min(2)
+        t = np.clip((l - (threshold - 0.06)) / 0.12, 0, 1); t = t * t * (3 - 2 * t)  # 1 = shirt
+        for u0, v0, u1, v1 in cloth_rects: t[int(v0 * h):int(v1 * h), int(u0 * w):int(u1 * w)] = 0
+        tie = np.zeros((h, w), bool)
+        for u0, v0, u1, v1 in tie_rects:  # the patterned silk tie: red ground and white spots, on blue denim
+            box = img[int(v0 * h):int(v1 * h), int(u0 * w):int(u1 * w)]
+            tie[int(v0 * h):int(v1 * h), int(u0 * w):int(u1 * w)] = (box[..., 0] > box[..., 2] - 0.02) | (box.mean(2) > 0.55)
+        tie = box_blur(tie.astype(np.float32), 3) > 0.3
+        t = np.where(tie, 0, t)
+        dark = (1 - t)
+        # the broad folds and seams only: a masked blur of the light level over the dark panels
+        m = dark + 1e-3
+        broad = box_blur(l * m, 6) / box_blur(m, 6)
+        shade = np.clip(broad / max(0.05, float((broad * dark).sum() / dark.sum())), 0.7, 1.25)
+        wv = weave(h, w, kind)
+        out = cloth * (wv * (0.8 + 0.2 * shade))[..., None] * dark[..., None] + \
+            light * (0.88 + 0.12 * l / max(0.2, float(l.mean())))[..., None] * t[..., None]
+        if tie_hex:
+            tc = np.array(hex01(tie_hex), np.float32)
+            out = np.where(tie[..., None], tc * (0.9 + 0.1 * wv)[..., None], out)
+        return out.reshape(-1, 3)
+    bake_base_colour(obj, fn, rough, shaped=True)
+    drop_maps(obj)
+
+
+def drop_maps(obj):
+    """Unlink normal, bump and specular maps (the suits' carry the pinstripe and the eyebrows' a bump map that the
+    glTF exporter turns into a garbage normal map)."""
+    for m in obj.data.materials:
+        nt, p = m.node_tree, principled(m)
+        for inp in ('Normal', 'Specular IOR Level', 'Specular Tint', 'Coat Weight', 'Coat Normal'):
+            if inp in p.inputs:
+                for l in list(p.inputs[inp].links): nt.links.remove(l)
+        for n in [n for n in nt.nodes if n.type in ('NORMAL_MAP', 'BUMP')]: nt.nodes.remove(n)
+        if 'Coat Weight' in p.inputs: p.inputs['Coat Weight'].default_value = 0.0
+
+
+def finish(obj, rough, cutout=False, sheen=0.0, sheen_tint=(1, 1, 1), spec=0.5):
+    """A clean glTF-friendly material: the base-colour texture straight into a Principled BSDF, a set roughness, no
+    clearcoat or stray maps. cutout: alpha-tested (hair, brows, lashes) through a Round node, which the glTF exporter
+    writes as alphaMode MASK. sheen: the soft rim of wool and skin (KHR_materials_sheen)."""
+    for m in obj.data.materials:
+        nt = m.node_tree
+        tex = next((n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.name.lower().startswith('diffuse')), None) or \
+            next((n for n in nt.nodes if n.type == 'TEX_IMAGE'), None)
+        img = tex.image if tex else None
+        old = principled(m)
+        colour = tuple(old.inputs['Base Color'].default_value)
+        for n in list(nt.nodes):
+            if n.type != 'OUTPUT_MATERIAL': nt.nodes.remove(n)
+        out = next(n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL')
+        p = nt.nodes.new('ShaderNodeBsdfPrincipled')
+        nt.links.new(p.outputs['BSDF'], out.inputs['Surface'])
+        p.inputs['Roughness'].default_value = rough
+        p.inputs['Specular IOR Level'].default_value = spec
+        if sheen:
+            p.inputs['Sheen Weight'].default_value = sheen
+            p.inputs['Sheen Tint'].default_value = (*sheen_tint, 1)
+            p.inputs['Sheen Roughness'].default_value = 0.6
+        if img:
+            t = nt.nodes.new('ShaderNodeTexImage'); t.image = img; t.name = 'diffuseTexture'
+            nt.links.new(t.outputs['Color'], p.inputs['Base Color'])
+            if cutout:
+                r = nt.nodes.new('ShaderNodeMath'); r.operation = 'ROUND'
+                nt.links.new(t.outputs['Alpha'], r.inputs[0]); nt.links.new(r.outputs[0], p.inputs['Alpha'])
+        else:
+            p.inputs['Base Color'].default_value = colour
+        m.blend_method = 'CLIP' if cutout else 'OPAQUE'
+        m.use_backface_culling = False
+
+
 def slick_hair(hair, body, keep=0.3, gap=0.004):
     """Pull hair in toward the scalp, keeping a little of its volume: hair worn short and oiled back."""
     bvh = world_mesh_bvh([body])
@@ -112,6 +223,37 @@ def slick_hair(hair, body, keep=0.3, gap=0.004):
         if loc is None: continue
         out = (v.co - loc).length
         v.co = loc + nrm * max(gap, out * keep)
+
+
+def gigot_sleeves(ob, rig, amount):
+    """The 1895 leg-o'-mutton sleeve: puff the upper sleeve out from the arm, most at the shoulder, tapering to
+    fitted at the elbow."""
+    names = {g.index: g.name for g in ob.vertex_groups}
+    for v in ob.data.vertices:
+        w = {names[g.group]: g.weight for g in v.groups}
+        for side in 'lr':
+            if w.get(f'upperarm_{side}', 0) + w.get(f'clavicle_{side}', 0) * 0.5 < 0.3: continue
+            a, b = bone_head(rig, f'upperarm_{side}'), bone_tail(rig, f'upperarm_{side}')
+            ax = (b - a).normalized()
+            t = max(0.0, min(1.0, (v.co - a).dot(ax) / (b - a).length))
+            foot = a + ax * (t * (b - a).length)
+            out = v.co - foot
+            if out.length < 1e-4: continue
+            out.normalize()
+            k = amount * math.sin(math.pi * min(1, 0.15 + t * 1.1)) ** 0.8 * (1 - t) ** 0.6
+            if out.z > 0.3: k *= 1.2  # fuller over the top of the shoulder
+            v.co += out * k
+
+
+def hair_under_hat(hair, body, hat, gap=0.003):
+    """Press the hair flat to the scalp wherever the hat covers it, so none of it pokes through the crown."""
+    zs = [(hat.matrix_world @ v.co).z for v in hat.data.vertices]
+    z_in = sorted(zs)[len(zs) // 20] - 0.004  # the band's lower edge (ignoring the curled brim)
+    bvh = world_mesh_bvh([body])
+    for v in hair.data.vertices:
+        if v.co.z < z_in: continue
+        loc, nrm, i, d = bvh.find_nearest(v.co)
+        if loc is not None: v.co = loc + nrm * gap
 
 
 def puff_hair(hair, body, amount):
@@ -125,9 +267,23 @@ def puff_hair(hair, body, amount):
         v.co += nrm * amount * k
 
 
-def eye_colour(eyes, colour):
+def eye_colour(eyes, colour, iris=None):
+    """Set the eye texture; iris (hex) recolours the iris, keeping its fibres (MakeHuman's 'brown' is nearly red)."""
+    import numpy as np
     path = os.path.join(USR, 'eyes', 'materials', f'{colour}_eye.png')
     img = bpy.data.images.load(path)
+    if iris:
+        w, h = img.size
+        px = np.empty(w * h * 4, np.float32); img.pixels.foreach_get(px); px = px.reshape(-1, 4)
+        rgb = px[:, :3]
+        sat = rgb.max(1) - rgb.min(1)
+        k = np.clip((sat - 0.12) / 0.1, 0, 1)[:, None]  # the iris; the white and the veins are barely saturated
+        lum = rgb @ np.array([0.299, 0.587, 0.114], np.float32)
+        ref = float(lum[k[:, 0] > 0.5].mean()) if (k > 0.5).any() else 0.4
+        px[:, :3] = rgb * (1 - k) + np.array(hex01(iris), np.float32) * (lum / ref)[:, None] * k
+        out = bpy.data.images.new(f'eye_{iris.strip("#")}', w, h, alpha=True)
+        out.pixels.foreach_set(px.ravel()); out.pack()
+        img = out
     for m in eyes.data.materials:
         for n in m.node_tree.nodes:
             if n.type == 'TEX_IMAGE': n.image = img
@@ -136,25 +292,15 @@ def eye_colour(eyes, colour):
 _tex = {}
 def cloth_texture(kind, hex, size=512):
     """A small tiling cloth texture (tweed herringbone or plain wool) as an image, so it survives glTF export."""
+    import numpy as np
     key = (kind, hex)
     if key in _tex: return _tex[key]
     img = bpy.data.images.new(f'{kind}_{hex.strip("#")}', size, size)
-    base = srgb(hex)
-    rnd = random.Random(7)
-    px = [0.0] * (size * size * 4)
-    noise = [rnd.random() for _ in range(size * size)]
-    for y in range(size):
-        for x in range(size):
-            n = noise[y * size + x]
-            if kind == 'tweed':
-                band = (x // 8) % 2
-                diag = ((x + (y if band else -y)) // 3) % 2
-                k = 0.78 + 0.16 * diag + 0.22 * (n - 0.5) + (0.18 if n > 0.985 else 0)  # flecks
-            else:
-                k = 0.9 + 0.12 * (n - 0.5) + 0.04 * ((x + y) % 2)
-            i = (y * size + x) * 4
-            px[i:i + 4] = [min(1, base[0] * k), min(1, base[1] * k), min(1, base[2] * k), 1]
-    img.pixels = px
+    k = weave(size, size, kind)  # tiles seamlessly
+    base = np.array(hex01(hex), np.float32)
+    px = np.ones((size, size, 4), np.float32)
+    px[..., :3] = np.clip(base * k[..., None], 0, 1)
+    img.pixels.foreach_set(px.ravel())
     img.pack()
     _tex[key] = img
     return img
@@ -268,9 +414,13 @@ def rerest_arms_down(rig, meshes, body, clearance=0.05):
 
 # --- fitted garments --------------------------------------------------------------
 
-def world_mesh_bvh(objects, drop_groups=()):
-    """A BVH of the evaluated meshes in world space, optionally without faces weighted to some bones (the arms)."""
+def world_mesh_bvh(objects, drop_groups=(), unmasked=False):
+    """A BVH of the evaluated meshes in world space, optionally without faces weighted to some bones (the arms).
+    unmasked: include the skin the clothes' delete groups hide."""
+    hidden = [md for ob in objects for md in ob.modifiers if unmasked and md.type == 'MASK' and md.show_viewport]
+    for md in hidden: md.show_viewport = False
     dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
     verts, polys = [], []
     for ob in objects:
         ev = ob.evaluated_get(dg)
@@ -278,9 +428,8 @@ def world_mesh_bvh(objects, drop_groups=()):
         idx = {g.name: g.index for g in ob.vertex_groups}
         drop = {idx[g] for g in drop_groups if g in idx}
         bad = set()
-        if drop:
-            src = ob.data
-            for v in src.vertices:
+        if drop:  # (from the evaluated mesh: masks renumber the vertices)
+            for v in me.vertices:
                 if sum(g.weight for g in v.groups if g.group in drop) > 0.4: bad.add(v.index)
         off = len(verts)
         verts += [ob.matrix_world @ v.co for v in me.vertices]
@@ -288,6 +437,7 @@ def world_mesh_bvh(objects, drop_groups=()):
             if bad and any(i in bad for i in p.vertices): continue
             polys.append([off + i for i in p.vertices])
         ev.to_mesh_clear()
+    for md in hidden: md.show_viewport = True
     return BVHTree.FromPolygons(verts, polys)
 
 
@@ -432,14 +582,39 @@ def transfer_weights(ob, src, rig, extra=None):
     md = ob.modifiers.new('Armature', 'ARMATURE'); md.object = rig
 
 
-def skirt_weights(rig, z_top, z_hem):
+def coat_sleeves(name, suit, mat, offset=0.009):
+    """Sleeves for a coat: the suit jacket's sleeves copied, pushed out over them and given the coat's cloth, with
+    the suit's skin weights. The jacket sleeves underneath are deleted (nobody sees them)."""
+    arm = set(g.index for g in suit.vertex_groups if g.name.startswith(('upperarm', 'lowerarm', 'hand')))
+    on = [sum(g.weight for g in v.groups if g.group in arm) > 0.6 for v in suit.data.vertices]
+    me = suit.data.copy(); me.name = name
+    ob = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(ob)
+    ob.parent = suit.parent
+    for g in suit.vertex_groups: ob.vertex_groups.new(name=g.name)
+    for md in suit.modifiers:
+        if md.type == 'ARMATURE': m = ob.modifiers.new('Armature', 'ARMATURE'); m.object = md.object
+    for bmo, keep_sleeves in ((ob, True), (suit, False)):
+        bm = bmesh.new(); bm.from_mesh(bmo.data); bm.faces.ensure_lookup_table()
+        sleeve = lambda f: all(on[v.index] for v in f.verts)
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if sleeve(f) != keep_sleeves], context='FACES')
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+        if keep_sleeves:
+            bm.normal_update()
+            for v in bm.verts: v.co += v.normal * offset
+        bm.to_mesh(bmo.data); bm.free()
+    me.materials.clear(); me.materials.append(mat)
+    for p in me.polygons: p.use_smooth = True
+    return ob
+
+
+def skirt_weights(rig, z_top, z_hem, follow=0.5):
     """Below the hips a coat skirt hangs from the pelvis. Toward the hem the front panels follow the thigh on
     their side, while the back hangs straight, the way a long coat swings."""
     y0 = bone_head(rig, 'pelvis').y
     def f(co, w):
         if co.z > z_top: return None
         front = 1 / (1 + math.exp((co.y - y0) / 0.035))  # 1 at the front, 0 at the back
-        k = min(1, (z_top - co.z) / max(0.01, z_top - z_hem)) ** 1.3 * (0.02 + 0.5 * front)
+        k = min(1, (z_top - co.z) / max(0.01, z_top - z_hem)) ** 1.3 * (0.02 + follow * front)
         side = 1 / (1 + math.exp(-co.x / 0.09))  # 0 = right, 1 = left
         return {'pelvis': 1 - k, 'thigh_l': k * side, 'thigh_r': k * (1 - side)}
     return f
@@ -504,6 +679,18 @@ def head_frame(rig, body):
     return h, top
 
 
+def head_fit(rig, body, z, gap=0.012, r0=0.104):
+    """Fit a hat's crown to the head at height z: (centre, sx, sy) for lathe_obj, so a crown of radius r0 clears the
+    skull (and hair pressed flat) by gap all round."""
+    h = bone_head(rig, 'head')
+    bvh = world_mesh_bvh([body])
+    ring = envelope(bvh, z, (0.0, h.y), 32, reach=0.3)
+    if not ring: return (0.0, h.y + 0.005), 0.93, 1.12
+    front, back, side = ring[0], ring[16], max(ring[8], ring[24])
+    cy = h.y + (back - front) / 2
+    return (0.0, cy), (side + gap) / r0, ((front + back) / 2 + gap) / r0
+
+
 def brow_line(top):
     """Height of the top of the eyebrows (hats sit just above them)."""
     zs = [(o.matrix_world @ v.co).z for o in bpy.data.objects if o.type == 'MESH' and 'eyebrow' in o.name.lower()
@@ -537,16 +724,16 @@ def deerstalker(rig, body, mat):
 def top_hat(rig, body, mat):
     """A silk top hat, brim curled up at the sides."""
     h, top = head_frame(rig, body)
-    c = (0.0, h.y + 0.005)
     zb = brow_line(top) + 0.035
-    ob = lathe_obj('TopHat', mat, [(0.17, zb - 0.002), (0.152, zb - 0.004), (0.108, zb), (0.104, zb + 0.004),
+    c, sx, sy = head_fit(rig, body, zb + 0.012)
+    ob = lathe_obj('TopHat', mat, [(0.158, zb - 0.002), (0.145, zb - 0.004), (0.108, zb), (0.104, zb + 0.004),
                                    (0.1, zb + 0.07), (0.104, zb + 0.15), (0.106, zb + 0.165), (0.104, zb + 0.168),
-                                   (0.002, zb + 0.17)], c, sx=0.93, sy=1.12, tilt=-0.06)
+                                   (0.002, zb + 0.17)], c, sx=sx, sy=sy, tilt=-0.06)
     for v in ob.data.vertices:  # curl the brim up at the sides
         d = math.hypot(v.co.x, v.co.y - c[1])
-        if d > 0.12 and v.co.z < zb + 0.01: v.co.z += 0.9 * (abs(v.co.x) / 0.17) ** 2 * (d - 0.11)
-    band = lathe_obj('HatBand', plain('band', '#050505', 0.5), [(0.1015, zb + 0.004), (0.101, zb + 0.032)], c,
-                     sx=0.94, sy=1.13, tilt=-0.06)
+        if d > 0.12 and v.co.z < zb + 0.01: v.co.z += 0.9 * (abs(v.co.x) / 0.158) ** 2 * (d - 0.11)
+    band = lathe_obj('HatBand', plain('band', '#050505', 0.5), [(0.1055, zb + 0.004), (0.105, zb + 0.032)], c,
+                     sx=sx, sy=sy, tilt=-0.06)
     for o in (ob, band): bind(o, rig, lambda co: {'head': 1.0})
     return ob
 
@@ -608,14 +795,14 @@ def cane(rig, side, shaft, knob, ferrule):
 
 def police_helmet(rig, body, mat, brass):
     h, top = head_frame(rig, body)
-    c = (0.0, h.y + 0.005)
     zb = brow_line(top) + 0.03
+    c, sx, sy = head_fit(rig, body, zb + 0.012, r0=0.112)
     ob = lathe_obj('Helmet', mat, [(0.128, zb - 0.006), (0.112, zb), (0.11, zb + 0.06), (0.1, zb + 0.13),
-                                   (0.075, zb + 0.18), (0.04, zb + 0.2), (0.002, zb + 0.205)], c, sx=0.95, sy=1.12,
+                                   (0.075, zb + 0.18), (0.04, zb + 0.2), (0.002, zb + 0.205)], c, sx=sx, sy=sy,
                    tilt=-0.08)
     badge = lathe_obj('Badge', brass, [(0.026, 0), (0.026, 0.004), (0.002, 0.006)], (0, 0), seg=16)
     for v in badge.data.vertices:
-        v.co = Matrix.Rotation(math.pi / 2, 3, 'X') @ v.co + Vector((0, c[1] - 0.122, zb + 0.08))
+        v.co = Matrix.Rotation(math.pi / 2, 3, 'X') @ v.co + Vector((0, c[1] - 0.11 * sy - 0.006, zb + 0.08))
     bind(ob, rig, lambda co: {'head': 1.0}); bind(badge, rig, lambda co: {'head': 1.0})
     return ob
 
@@ -633,11 +820,115 @@ def buttons(rig, mat, xs, ys, zs, name='Buttons'):
     return ob
 
 
+def buttonhole_flower(rig, front, mat, leaf, x, z, name='Gardenia'):
+    """A gardenia in the left lapel's buttonhole: a cup of creamy petals in two rings and a dark leaf behind."""
+    y = front(x, z) - 0.006
+    bm = bmesh.new()
+    for ring, (n, r, tilt, size) in enumerate(((6, 0.016, 0.9, 0.017), (5, 0.007, 0.35, 0.012))):
+        for i in range(n):
+            a = 2 * math.pi * (i + 0.5 * ring) / n
+            M = Matrix.Translation((x + r * math.cos(a), y - 0.004 * ring - 0.002, z + r * math.sin(a))) @ \
+                Matrix.Rotation(a - math.pi / 2, 4, 'Y') @ Matrix.Rotation(-tilt, 4, 'X') @ \
+                Matrix.Diagonal((size * 0.75, size * 0.25, size, 1))
+            bmesh.ops.create_uvsphere(bm, u_segments=6, v_segments=4, radius=1, matrix=M)
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    ob = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(ob)
+    me.materials.append(mat)
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=6, v_segments=4, radius=1,
+                              matrix=Matrix.Translation((x - 0.012, y + 0.004, z - 0.016)) @ Matrix.Rotation(0.7, 4, 'Y') @
+                              Matrix.Diagonal((0.012, 0.003, 0.026, 1)))
+    lm = bpy.data.meshes.new(name + 'Leaf'); bm.to_mesh(lm); bm.free()
+    lo = bpy.data.objects.new(name + 'Leaf', lm); bpy.context.scene.collection.objects.link(lo)
+    lm.materials.append(leaf)
+    for o in (ob, lo):
+        for p in o.data.polygons: p.use_smooth = True
+        bind(o, rig, lambda co: {'spine_03': 1.0})
+    return ob
+
+
 def front_of(ob, x, z):
     """y of the front surface of ob at (x, z), from a ray cast forward-to-back."""
     bvh = world_mesh_bvh([ob])
     loc, *_ = bvh.ray_cast(Vector((x, -1, z)), Vector((0, 1, 0)), 2)
     return loc.y if loc else None
+
+
+# --- phone budget ------------------------------------------------------------------
+
+def triangles(ob):
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = ob.evaluated_get(dg).to_mesh(); me.calc_loop_triangles(); n = len(me.loop_triangles)
+    ob.evaluated_get(dg).to_mesh_clear()
+    return n
+
+
+def apply_masks(ob):
+    """Delete what the Mask modifiers hide (MakeHuman's helper geometry and the skin under the clothes) for good."""
+    masks = [md for md in ob.modifiers if md.type == 'MASK' and md.vertex_group in ob.vertex_groups]
+    if not masks: return
+    drop = set()
+    for md in masks:
+        gi = ob.vertex_groups[md.vertex_group].index
+        for v in ob.data.vertices:
+            inside = any(g.group == gi and g.weight > 0 for g in v.groups)
+            if inside == md.invert_vertex_group: drop.add(v.index)
+    bm = bmesh.new(); bm.from_mesh(ob.data); bm.verts.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[bm.verts[i] for i in drop], context='VERTS')
+    bm.to_mesh(ob.data); bm.free()
+    for md in masks: ob.modifiers.remove(md)
+
+
+def decimate(ob, ratio, keep=None):
+    """Collapse-decimate a skinned mesh in place (weights and UVs are interpolated). keep(world co) -> True for
+    vertices to leave alone (the face)."""
+    if ratio >= 1: return
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.context.view_layer.objects.active = ob; ob.select_set(True)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.object.mode_set(mode='OBJECT')
+    me = ob.data
+    seam = set()  # vertices on a UV island's border: keep them, or the texture tears along the seams
+    if me.uv_layers.active:
+        uv, first = me.uv_layers.active.data, {}
+        for l in me.loops:
+            u = tuple(round(x, 4) for x in uv[l.index].uv)
+            if first.setdefault(l.vertex_index, u) != u: seam.add(l.vertex_index)
+    mw = ob.matrix_world
+    for v in me.vertices: v.select = v.index not in seam and not (keep and keep(mw @ v.co))
+    for p in me.polygons: p.select = all(me.vertices[i].select for i in p.vertices)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.decimate(ratio=ratio)
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+
+def face_region(rig):
+    """The front of the head (face, brows, eyes) and the ears' front: kept at full resolution."""
+    h = bone_head(rig, 'head')
+    def keep(co):
+        return co.z > h.z - 0.05 and co.y < h.y + 0.015 and abs(co.x) < 0.075
+    return keep
+
+
+BUDGET = [  # (name contains, ratio): what to keep of each part's triangles
+    ('toigo_male_suit', 0.15), ('female_suit', 0.15), ('shoes', 0.2), ('gloves', 0.2), ('bowler', 0.65),
+    ('cap', 0.3), ('CoatSleeves', 0.2), ('Coat', 0.35), ('Skirt', 0.4), ('Cape', 0.4), ('TopHat', 0.6), ('Helmet', 0.6),
+]
+
+
+def optimise(rig, body, parts, hair_ratio=0.55, suit_ratio=None):
+    keep = face_region(rig)
+    apply_masks(body)
+    decimate(body, 0.3, keep)
+    hair = set(parts.get('_hair', []))
+    for ob in [o for o in rig.children if o.type == 'MESH' and o is not body]:
+        r = 1.0
+        if ob.name in hair: r = hair_ratio
+        for k, v in BUDGET:  # the first match
+            if k in ob.name: r = v; break
+        if suit_ratio and 'suit' in ob.name: r = suit_ratio
+        decimate(ob, r)
 
 
 # --- clips ----------------------------------------------------------------------
@@ -669,7 +960,7 @@ def key_pose(rig, frame, rot, aims=None, act=None):
             q = Quaternion(axis, ang) @ q
         pose_world(rig, b, q)
     for b, d in (aims or {}).items():
-        aim_posed(rig, b, d)
+        aim_posed(rig, b, d(rig) if callable(d) else d)  # a callable reads the pose so far (IK)
     if act: rig.animation_data.action = act
     for pb in rig.pose.bones:
         pb.keyframe_insert('rotation_quaternion', frame=frame)
@@ -695,68 +986,193 @@ def clip(rig, name, frames, poses, cyclic=True):
 X, Y, Z = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
 
 
-def make_clips(rig, gait=1.0):
-    # Idle: slow breathing and a little weight shift. 4 s.
-    clip(rig, 'Idle', 120, [(f, {
-        'spine_02': (X, -0.012 * math.sin(2 * math.pi * f / 120)),
-        'spine_03': (X, -0.018 * math.sin(2 * math.pi * f / 120)),
-        'pelvis': (Y, 0.01 * math.sin(2 * math.pi * f / 120 + 1)),
-        'head': (Z, 0.03 * math.sin(2 * math.pi * f / 120 * 0.5)),
-    }) for f in range(0, 121, 10)])
+GAITS = {  # frames per cycle, ground each foot covers while planted (m), share of the cycle planted, foot lift,
+    # arm swing (rad), elbow bend, hip sway (m), hip turn (rad), bounce (m)
+    'gent': dict(n=32, L=0.8, duty=0.6, lift=0.07, arm=0.24, elbow=-0.1, sway=0.025, turn=0.07, bounce=0.014),
+    'lady': dict(n=30, L=0.5, duty=0.64, lift=0.045, arm=0.06, elbow=-0.32, sway=0.03, turn=0.035, bounce=0.007),
+    'heavy': dict(n=40, L=0.62, duty=0.66, lift=0.05, arm=0.12, elbow=-0.22, sway=0.045, turn=0.05, bounce=0.01),
+}
 
-    # Walk: one stride each side in 1.1 s. Forward swing is a negative turn about X (the character faces -Y).
-    n = 36  # 1.2 s for two steps of about 0.85 m: 1.45 m/s at timeScale 1
+
+def walk_clip(rig, gait, cane, hand):
+    """Walk: two steps, legs placed by IK so the planted foot stays put on the ground while the body passes over it
+    (no sliding): it moves back at exactly the walking speed, which is stored on the rig as walk_speed (exported
+    in the glTF extras) for the game to match. The character faces -Y."""
+    g = GAITS.get(gait, GAITS['gent'])
+    n, L, duty = g['n'], g['L'], g['duty']
+    T = 2 * math.pi
+    bone = rig.data.bones
+    smooth = lambda x: (lambda t: t * t * (3 - 2 * t))(max(0.0, min(1.0, x)))
+    legs = {}
+    for side in 'lr':
+        H, K, A = bone[f'thigh_{side}'].head_local, bone[f'calf_{side}'].head_local, bone[f'foot_{side}'].head_local
+        B = bone[f'ball_{side}'].head_local
+        legs[side] = dict(L1=(K - H).length, L2=(A - K).length, A=A.copy(), flen=(B - A).length,
+                          fdir=(B - A).normalized())
+    def foot(side, t):
+        """Ankle target (armature space) and the foot's pitch (+ = toe down) at cycle time t."""
+        leg = legs[side]
+        ph = (t + (0.5 if side == 'r' else 0.0)) % 1.0
+        z0, x = leg['A'].z, leg['A'].x * 0.8
+        heel_max = 0.045 if gait != 'lady' else 0.03
+        if ph < duty:  # planted: from the front of the stride to the back, heel peeling up at the end
+            u = ph / duty
+            y = -L / 2 + L * u
+            heel = heel_max * smooth((u - 0.65) / 0.35)
+            pitch = math.asin(min(0.9, heel / leg['flen'])) - 0.15 * (1 - smooth(u / 0.12))
+            z = z0 + heel
+        else:  # swinging through: forward in an arc, toe up again for the heel to strike
+            u = (ph - duty) / (1 - duty)
+            y = L / 2 - L * smooth(u)
+            heel = heel_max * (1 - smooth(u / 0.35))
+            z = z0 + heel + g['lift'] * math.sin(math.pi * u) ** 1.2
+            pitch = math.asin(min(0.9, heel / leg['flen'])) * (1 - smooth(u / 0.35)) - 0.15 * smooth((u - 0.55) / 0.45)
+        return Vector((x, y, z)), pitch
+    def knee_dir(side, t):
+        def f(rig):
+            leg = legs[side]
+            Ht = rig.pose.bones[f'thigh_{side}'].head
+            At, _ = foot(side, t)
+            dv = At - Ht
+            d = min(dv.length, leg['L1'] + leg['L2'] - 1e-4)
+            u = dv.normalized()
+            fwd = Vector((0, -1, 0))
+            w = (fwd - u * fwd.dot(u)).normalized()
+            a = math.acos(max(-1, min(1, (leg['L1'] ** 2 + d * d - leg['L2'] ** 2) / (2 * leg['L1'] * d))))
+            return u * math.cos(a) + w * math.sin(a)
+        return f
+    def shin_dir(side, t):
+        def f(rig):
+            At, _ = foot(side, t)
+            return At - rig.pose.bones[f'calf_{side}'].head
+        return f
+    def foot_dir(side, t):
+        def f(rig):
+            _, pitch = foot(side, t)
+            return Matrix.Rotation(pitch, 3, 'X') @ legs[side]['fdir']
+        return f
+    arm_l = g['arm'] * (0.55 if cane == 'l' else 1)
+    arm_r = g['arm'] * (0.55 if cane == 'r' else 1)
     poses = []
-    for f in range(0, n + 1, 3):
-        p = 2 * math.pi * f / n
-        s = math.sin(p)
-        c = math.cos(p)  # +1 at mid-stance on the right leg (left swinging through), -1 on the left
-        knee = lambda ph: max(0.0, math.sin(ph - 0.7)) ** 1.3 * 0.55 + 0.05
-        poses.append((f, {
-            # legs swing forward and back, and in toward the line the feet walk on
-            'thigh_l': [(X, -0.5 * s * gait), (Y, 0.045)], 'thigh_r': [(X, 0.5 * s * gait), (Y, -0.045)],
-            'calf_l': (X, knee(p + math.pi) * gait), 'calf_r': (X, knee(p) * gait),
-            'foot_l': (X, -0.2 * max(0, math.sin(p + math.pi - 1.0))), 'foot_r': (X, -0.2 * max(0, math.sin(p - 1.0))),
-            # the cane hand (left) swings less than the free one
-            'upperarm_l': (X, 0.14 * s * gait), 'upperarm_r': (X, -0.24 * s * gait),
-            'lowerarm_l': (X, -0.08), 'lowerarm_r': (X, -0.08 - 0.12 * max(0, s)),
-            # weight over the standing leg: the hips shift and the free side drops, the spine counters,
-            # the shoulders turn against the hips and the head stays level
-            'pelvis': [(Z, 0.08 * s * gait), (Y, 0.045 * c)],
-            'spine_01': [(X, -0.03), (Y, -0.035 * c)],
-            'spine_03': [(Z, -0.1 * s * gait), (Y, -0.015 * c)],
-            'head': [(Z, 0.04 * s), (Y, 0.01 * c)],
-            'pelvis_move': (-0.028 * c, 0.018 * abs(c) - 0.01),
-        }))
+    for f in range(0, n + 1, 2):
+        t = f / n
+        sl, sr = math.cos(T * (t - 0.5)), math.cos(T * t)  # +1: that arm fully forward
+        d = {
+            **hand,
+            'pelvis_move': (g['sway'] * math.sin(T * (t - 0.06)), g['bounce'] * math.cos(2 * T * (t - 0.31)) - 0.022),
+            'pelvis': [(Z, -g['turn'] * math.cos(T * t)), (Y, -0.035 * math.sin(T * (t - 0.06)))],
+            'spine_01': [(X, -0.025 if gait == 'gent' else 0.0), (Y, 0.03 * math.sin(T * (t - 0.06)))],
+            'spine_03': [(Z, 1.25 * g['turn'] * math.cos(T * t)), (Y, 0.012 * math.sin(T * (t - 0.06)))],
+            'head': [(Z, -0.3 * g['turn'] * math.cos(T * t))],
+            'upperarm_l': (X, -arm_l * sl), 'upperarm_r': (X, -arm_r * sr),
+            'lowerarm_l': (X, g['elbow'] - 0.35 * arm_l * max(0, sl)),
+            'lowerarm_r': (X, g['elbow'] - 0.35 * arm_r * max(0, sr)),
+        }
+        if gait == 'lady':  # hands carried a little in front and out, clear of the skirt
+            d['upperarm_l'] = [(X, -arm_l * sl - 0.14), (Y, -0.06)]
+            d['upperarm_r'] = [(X, -arm_r * sr - 0.14), (Y, 0.06)]
+        aims = {}
+        for side in 'lr':
+            aims[f'thigh_{side}'] = knee_dir(side, t)
+            aims[f'calf_{side}'] = shin_dir(side, t)
+            aims[f'foot_{side}'] = foot_dir(side, t)
+        poses.append((f, d, aims))
     clip(rig, 'Walk', n, poses)
+    rig['walk_speed'] = round(L / (duty * n / FPS), 3)
+    print('WALK', rig.name, rig['walk_speed'], 'm/s')
 
-    # Talk: idle plus a nod and an open-handed gesture of the right forearm. 3 s.
-    clip(rig, 'Talk', 90, [(f, {
-        'spine_03': (X, -0.015 * math.sin(2 * math.pi * f / 90)),
-        'head': [(X, -0.06 * math.sin(2 * math.pi * f / 45)), (Z, 0.06 * math.sin(2 * math.pi * f / 90))],
-        'upperarm_r': (X, -0.25 - 0.08 * math.sin(2 * math.pi * f / 90)),
-        'lowerarm_r': (X, -0.9 - 0.25 * math.sin(2 * math.pi * f / 45)),
-        'hand_r': (Y, 0.4),
-    }) for f in range(0, 91, 5)])
+
+def hands(rig, curl=0.32, grip=None):
+    """Relaxed hands: fingers curled a little at each joint, more toward the little finger; the thumb in toward the
+    palm. grip: a side ('l' or 'r') whose fingers close round something (a cane). Merged into every pose."""
+    out = {}
+    for side in 'lr':
+        k_in = rig.data.bones[f'index_01_{side}'].head_local
+        k_out = rig.data.bones[f'pinky_01_{side}'].head_local
+        axis = (k_in - k_out).normalized()
+        fwd = (rig.data.bones[f'middle_01_{side}'].tail_local - rig.data.bones[f'middle_01_{side}'].head_local)
+        palm = axis.cross(fwd).normalized()  # which way the fingers fold
+        if palm.dot(rig.data.bones[f'thumb_01_{side}'].head_local - rig.data.bones[f'middle_01_{side}'].head_local) < 0:
+            axis = -axis
+        c = 1.25 if grip == side else curl
+        for i, f in enumerate(('index', 'middle', 'ring', 'pinky')):
+            spread = 1 + 0.12 * i
+            for j, k in ((1, 0.8), (2, 1.0), (3, 0.7)):
+                out[f'{f}_0{j}_{side}'] = (axis, c * k * spread)
+        out[f'thumb_02_{side}'] = (axis, 0.25 if grip != side else 0.6)
+    return out
+
+
+def make_clips(rig, gait='gent', cane=None):
+    """gait: 'gent' (the default), 'lady' (a shorter, gliding step with the arms held in, for a long skirt) or
+    'heavy' (the fat man's slow roll). cane: the hand holding one, which swings less and keeps its grip."""
+    hand = hands(rig, grip=cane)
+    T = 2 * math.pi
+    def merge(d):
+        return {**hand, **d}
+    # Idle: breathing, and the weight shifting slowly from one leg to the other with the hips and shoulders
+    # answering it; the head looks about now and then. 6 s.
+    n = 180
+    clip(rig, 'Idle', n, [(f, merge({
+        'pelvis_move': (0.018 * math.sin(T * f / n), 0.0),
+        'pelvis': (Y, -0.025 * math.sin(T * f / n)),
+        'thigh_l': (Y, 0.02 * math.sin(T * f / n)), 'thigh_r': (Y, 0.02 * math.sin(T * f / n)),
+        'spine_01': (Y, 0.012 * math.sin(T * f / n)),
+        'spine_02': [(X, -0.012 * math.sin(T * f / 60)), (Y, 0.01 * math.sin(T * f / n))],
+        'spine_03': (X, -0.018 * math.sin(T * f / 60)),
+        'clavicle_l': (Y, -0.01 * math.sin(T * f / 60)), 'clavicle_r': (Y, 0.01 * math.sin(T * f / 60)),
+        'upperarm_l': (X, 0.02 * math.sin(T * f / n + 1)), 'upperarm_r': (X, -0.02 * math.sin(T * f / n + 2)),
+        'lowerarm_l': (X, -0.06 - 0.02 * math.sin(T * f / 60)), 'lowerarm_r': (X, -0.06 - 0.02 * math.sin(T * f / 60)),
+        'neck_01': (X, 0.01 * math.sin(T * f / 60)),
+        'head': [(Z, 0.09 * math.sin(T * f / n) ** 3), (X, 0.025 * math.sin(T * f / 90))],
+    })) for f in range(0, n + 1, 10)])
+
+    walk_clip(rig, gait, cane, hand)
+
+    # Talk: weight on one leg, the head nodding and turning with the sense, and two gestures: the right hand
+    # opens out toward the listener, then both hands make a small point together. 6 s.
+    n = 180
+    def gesture(f, at, length):
+        t = (f - at) / length
+        return math.sin(math.pi * t) ** 2 if 0 <= t <= 1 else 0.0
+    poses = []
+    for f in range(0, n + 1, 6):
+        g1, g2 = gesture(f, 10, 80), gesture(f, 100, 70)
+        poses.append((f, merge({
+            'pelvis_move': (0.012, 0.0), 'pelvis': (Y, -0.02),
+            'spine_02': (X, -0.01 * math.sin(T * f / 60)),
+            'spine_03': [(X, -0.02 * g1 - 0.015 * math.sin(T * f / 60)), (Z, 0.04 * g1 - 0.03 * g2)],
+            'neck_01': (X, -0.03 * math.sin(T * f / 45)),
+            'head': [(X, -0.05 * math.sin(T * f / 45) - 0.04 * g2), (Z, 0.08 * math.sin(T * f / n) - 0.05 * g1),
+                     (Y, 0.04 * g2)],
+            'upperarm_r': [(X, -0.32 * g1 - 0.18 * g2), (Y, 0.08 * g1)],
+            'lowerarm_r': (X, -0.15 - 1.0 * g1 - 0.7 * g2),
+            'hand_r': (Y, 0.9 * g1 + 0.3 * g2),
+            'upperarm_l': (X, -0.12 * g2), 'lowerarm_l': (X, -0.1 - 0.6 * g2), 'hand_l': (Y, -0.3 * g2),
+        })))
+    clip(rig, 'Talk', n, poses)
 
     # LieBack: a single pose for the body in the alley (the game lays the figure down).
     clip(rig, 'LieBack', 1, [(0, {
-        'thigh_l': (Y, -0.06), 'thigh_r': (Y, 0.09), 'head': (Y, 0.35),
-    }, {  # arms flung out flat on the cobbles (the game lays him on his back, so 'down' here is along the ground)
-        'upperarm_l': (0.85, 0.12, -0.5), 'lowerarm_l': (0.95, 0.15, -0.1), 'hand_l': (0.95, 0.2, -0.05),
-        'upperarm_r': (-0.8, 0.12, -0.6), 'lowerarm_r': (-0.9, 0.2, -0.35), 'hand_r': (-0.85, 0.25, -0.3),
+        **hands(rig, 0.45), 'thigh_l': (Y, -0.06), 'thigh_r': (Y, 0.09), 'head': (Y, 0.35),
+    }, {  # arms fallen loose at his sides, a little away from the body, elbows soft (the game lays him on his
+        # back, so 'down' here is along the ground and -Y is up off it)
+        'upperarm_l': (0.32, 0.04, -1), 'lowerarm_l': (0.38, -0.1, -1), 'hand_l': (0.36, -0.05, -1),
+        'upperarm_r': (-0.4, 0.04, -1), 'lowerarm_r': (-0.5, -0.06, -1), 'hand_r': (-0.45, 0.0, -1),
     }), (1, {
-        'thigh_l': (Y, -0.06), 'thigh_r': (Y, 0.09), 'head': (Y, 0.35),
-    }, {  # arms flung out flat on the cobbles (the game lays him on his back, so 'down' here is along the ground)
-        'upperarm_l': (0.85, 0.12, -0.5), 'lowerarm_l': (0.95, 0.15, -0.1), 'hand_l': (0.95, 0.2, -0.05),
-        'upperarm_r': (-0.8, 0.12, -0.6), 'lowerarm_r': (-0.9, 0.2, -0.35), 'hand_r': (-0.85, 0.25, -0.3),
+        **hands(rig, 0.45), 'thigh_l': (Y, -0.06), 'thigh_r': (Y, 0.09), 'head': (Y, 0.35),
+    }, {  # arms fallen loose at his sides, a little away from the body, elbows soft (the game lays him on his
+        # back, so 'down' here is along the ground and -Y is up off it)
+        'upperarm_l': (0.32, 0.04, -1), 'lowerarm_l': (0.38, -0.1, -1), 'hand_l': (0.36, -0.05, -1),
+        'upperarm_r': (-0.4, 0.04, -1), 'lowerarm_r': (-0.5, -0.06, -1), 'hand_r': (-0.45, 0.0, -1),
     })])
+
     # Aim: the right arm straight out at the front (a pistol), the body turned a little behind it
-    aim = ({'spine_03': (Z, 0.15), 'head': (Z, -0.1)},
+    aim = ({**hands(rig, grip='r'), 'spine_03': (Z, 0.15), 'head': (Z, -0.1)},
            {'upperarm_r': (-0.12, -1, 0.08), 'lowerarm_r': (-0.05, -1, 0.06), 'hand_r': (0, -1, 0.04)})
     clip(rig, 'Aim', 1, [(0, *aim), (1, *aim)])
     # HandsUp: both hands raised beside the head
-    up = ({'spine_03': (X, 0.04)},
+    up = ({**hands(rig, 0.12), 'spine_03': (X, 0.04)},
           {'upperarm_l': (0.55, 0.05, 0.85), 'lowerarm_l': (0.05, 0.05, 1), 'upperarm_r': (-0.55, 0.05, 0.85), 'lowerarm_r': (-0.05, 0.05, 1)})
     clip(rig, 'HandsUp', 1, [(0, *up), (1, *up)])
     for pb in rig.pose.bones:
@@ -777,7 +1193,7 @@ CAST = {
               'forehead/forehead-scale-vert-incr': 0.45, 'mouth/mouth-upperlip-volume-decr': 0.5,
               'mouth/mouth-lowerlip-volume-decr': 0.35, 'eyebrows/eyebrows-trans-down': 0.35,
               'eyebrows/eyebrows-angle-down': 0.2, 'neck/neck-scale-vert-incr': 0.3},
-        hair=['short02'], hair_color='#0d0b0a', eyebrows='eyebrow012', slick=True, eyes='grey',
+        hair=['elvs_grump_hair'], hair_color='#0d0b0a', eyebrows='eyebrow012', eyes='grey', slick=True, hair_ratio=0.22,
         clothes=['toigo_male_suit_3', 'shoes06'], suit='#121212', shoes='#0b0a0a',
         coat='frock', coat_color='#141414', hat='tophat', chain=True, hand_clearance=0.07,
         cane='l',  # in the left hand, so the right is free to gesture
@@ -791,7 +1207,8 @@ CAST = {
               'cheek/r-cheek-volume-incr': 0.3, 'eyebrows/eyebrows-trans-down': 0.1, 'neck/neck-scale-horiz-incr': 0.3},
         hair=['short04'], hair_color='#5a3f28', eyebrows='eyebrow010', eyes='brownlight',
         clothes=['toigo_male_suit_3', 'shoes06', 'grinsegold_moustache', 'culturalibre_cl_bowler_hat'],
-        suit='#7a6a52', shirt='#e8e2d4', split=0.5, shoes='#2a1c12', moustache='#5a3f28', bowler='#3b2a1c',
+        suit='#8a7656', suit_kind='tweed', shirt='#e8e2d4', split=0.5, tie='#4a2418', shoes='#2a1c12',
+        moustache='#5a3f28', bowler='#3b2a1c',
     ),
     # Big, heavy police sergeant: grey overcoat, black bowler, heavy moustache.
     'polhaus': dict(
@@ -800,7 +1217,7 @@ CAST = {
         face={'head/head-square': 0.6, 'chin/chin-width-incr': 0.5, 'chin/chin-prominent-incr': 0.2,
               'nose/nose-volume-incr': 0.4, 'nose/nose-scale-horiz-incr': 0.3, 'eyebrows/eyebrows-trans-down': 0.3,
               'neck/neck-scale-horiz-incr': 0.5, 'cheek/l-cheek-volume-incr': 0.4, 'cheek/r-cheek-volume-incr': 0.4},
-        hair=['short01'], hair_color='#2e2219', eyebrows='eyebrow001', eyes='brown',
+        hair=['short01'], hair_color='#2e2219', eyebrows='eyebrow001', eyes='brownlight', iris='#4a3220',
         clothes=['toigo_male_suit_3', 'shoes06', 'grinsegold_moustache', 'culturalibre_cl_bowler_hat'],
         suit='#2a2a2c', shoes='#0e0c0b', moustache='#2e2219', bowler='#141414',
         coat='overcoat', coat_color='#3a3c40', hand_clearance=0.085,
@@ -811,8 +1228,8 @@ CAST = {
         macro=dict(age=0.42, muscle=0.55, weight=0.42, height=0.58, proportions=0.6),
         face={'head/head-oval': 0.3, 'nose/nose-point-up': 0.2, 'nose/nose-scale-horiz-decr': 0.1,
               'chin/chin-height-decr': 0.1, 'cheek/l-cheek-volume-incr': 0.2, 'cheek/r-cheek-volume-incr': 0.2},
-        hair=['short03'], hair_color='#7a3f1f', eyebrows='eyebrow006', eyes='lightblue', slick=True,
-        clothes=['toigo_male_suit_3', 'shoes06'], suit='#1a2238', shirt='#1d263e', shoes='#0b0a0a',
+        hair=['short02'], hair_color='#7a3f1f', eyebrows='eyebrow006', eyes='lightblue', slick=True,
+        clothes=['toigo_male_suit_3', 'shoes06'], suit='#1a2238', shirt='#1d263e', tie='#1a2238', shoes='#0b0a0a',
         tunic=True, hat='helmet',
     ),
     # The victim: overcoat buttoned to the collar (a clue), hat lying apart in the alley.
@@ -821,7 +1238,7 @@ CAST = {
         macro=dict(age=0.6, muscle=0.6, weight=0.6, height=0.58, proportions=0.55),
         face={'head/head-square': 0.4, 'chin/chin-prominent-incr': 0.3, 'nose/nose-scale-vert-decr': 0.2,
               'mouth/mouth-scale-horiz-incr': 0.2},
-        hair=['short02'], hair_color='#4a3324', eyebrows='eyebrow003', eyes='brown',
+        hair=['short02'], hair_color='#4a3324', eyebrows='eyebrow003', eyes='brownlight', iris='#4a3220',
         clothes=['toigo_male_suit_3', 'shoes06', 'grinsegold_moustache'],
         suit='#2b2925', shoes='#120f0d', moustache='#4a3324',
         coat='buttoned', coat_color='#3d3a33', hem=0.12, hand_clearance=0.085,
@@ -835,10 +1252,15 @@ CAST = {
               'neck/measure-neck-circ-incr': 0.8, 'cheek/l-cheek-volume-incr': 0.8, 'cheek/r-cheek-volume-incr': 0.8,
               'chin/chin-prominent-decr': 0.3, 'nose/nose-volume-incr': 0.3, 'eyebrows/eyebrows-trans-down': 0.2,
               'torso/measure-waist-circ-incr': 1.0, 'torso/torso-scale-depth-incr': 0.8,
-              'hip/hip-scale-depth-incr': 0.6, 'hip/hip-scale-horiz-incr': 0.5},
-        hair=['short01'], hair_color='#3a3632', eyebrows='eyebrow001', eyes='brown', skin='middleage_caucasian_male',
+              'stomach/stomach-pregnant-incr': 0.7, 'hip/hip-scale-depth-incr': 0.6, 'hip/hip-scale-horiz-incr': 0.5,
+              'mouth/mouth-lowerlip-volume-incr': 0.5, 'mouth/mouth-upperlip-volume-incr': 0.3,
+              'eyes/l-eye-bag-incr': 0.5, 'eyes/r-eye-bag-incr': 0.5, 'cheek/l-cheek-trans-down': 0.3,
+              'cheek/r-cheek-trans-down': 0.3},
+        # "dark ringlets thinly covering his broad scalp"
+        hair=['short02'], slick=True, hair_color='#2a2420', eyebrows='eyebrow001', eyes='brownlight', iris='#3a2618',
+        skin='middleage_caucasian_male', skin_tone='#fff0ea',
         clothes=['toigo_male_suit_3', 'shoes06'], suit='#121212', shirt='#e8e2d4', shoes='#0b0a0a',
-        coat='frock', coat_color='#151515', hand_clearance=0.16, chain=True,
+        coat='frock', cutaway=1.3, coat_color='#151515', hand_clearance=0.16, chain=True, gait='heavy',
     ),
     # Wilmer Cook, the gunsel: a small, young, pale man with a cap and an overcoat too good for him.
     'wilmer': dict(
@@ -846,7 +1268,7 @@ CAST = {
         macro=dict(age=0.3, muscle=0.5, weight=0.38, height=0.3, proportions=0.6),
         face={'head/head-oval': 0.3, 'nose/nose-scale-horiz-decr': 0.2, 'mouth/mouth-scale-horiz-decr': 0.2,
               'eyebrows/eyebrows-trans-down': 0.4, 'chin/chin-prominent-incr': 0.2},
-        hair=['short03'], hair_color='#4a3a28', eyebrows='eyebrow006', eyes='lightblue', slick=True,
+        hair=['short02'], hair_color='#4a3a28', eyebrows='eyebrow006', eyes='lightblue', slick=True,
         clothes=['toigo_male_suit_3', 'shoes06', 'elvs_male_flat_cap1'], suit='#2a2a2c', shoes='#16120e',
         coat='overcoat', coat_color='#2c2e30', hand_clearance=0.085, cap='#3a3632',
     ),
@@ -854,12 +1276,17 @@ CAST = {
     'cairo': dict(
         height=1.7,
         macro=dict(age=0.45, muscle=0.3, weight=0.42, height=0.4, proportions=0.65),
-        face={'head/head-oval': 0.5, 'nose/nose-hump-incr': 0.4, 'nose/nose-scale-vert-incr': 0.2, 'eyebrows/eyebrows-angle-up': 0.3,
-              'mouth/mouth-scale-horiz-decr': 0.2, 'chin/chin-prominent-decr': 0.2, 'cheek/l-cheek-volume-incr': 0.2,
-              'cheek/r-cheek-volume-incr': 0.2},
-        hair=['short02'], hair_color='#0a0908', eyebrows='eyebrow001', eyes='brown', slick=True, skin='middleage_caucasian_male',
-        clothes=['toigo_male_suit_3', 'shoes06'], suit='#141218', shirt='#ece6d8', shoes='#0b0a0a',
-        coat='frock', coat_color='#18161c', hand_clearance=0.06,
+        face={'head/head-oval': 0.5, 'head/head-scale-horiz-decr': 0.15, 'nose/nose-hump-incr': 0.7,
+              'nose/nose-scale-vert-incr': 0.4, 'nose/nose-point-down': 0.35, 'nose/nose-volume-incr': 0.2,
+              'eyebrows/eyebrows-angle-up': 0.3, 'eyebrows/eyebrows-trans-down': 0.15,
+              'eyes/l-eye-eyefold-down': 0.35, 'eyes/r-eye-eyefold-down': 0.35, 'eyes/l-eye-bag-incr': 0.3,
+              'eyes/r-eye-bag-incr': 0.3, 'mouth/mouth-scale-horiz-decr': 0.2, 'mouth/mouth-lowerlip-volume-incr': 0.35,
+              'mouth/mouth-upperlip-volume-incr': 0.2, 'chin/chin-prominent-decr': 0.2,
+              'cheek/l-cheek-volume-incr': 0.2, 'cheek/r-cheek-volume-incr': 0.2},
+        hair=['elvs_grump_hair'], hair_ratio=0.22, hair_color='#070606', eyebrows='eyebrow001', eyes='brownlight',
+        iris='#2a1a10', slick=True, skin='middleage_caucasian_male', skin_tone='#e8cdb0',
+        clothes=['toigo_male_suit_3', 'shoes06'], suit='#141218', shirt='#ece6d8', tie='#3a1830', shoes='#0b0a0a',
+        coat='frock', coat_color='#18161c', hand_clearance=0.06, gardenia=True,
     ),
     # Mr. Tobias Wren, keeper of the Art Association's collection (invented): thin, elderly, ink on his fingers.
     'wren': dict(
@@ -875,15 +1302,31 @@ CAST = {
     # cobalt-blue eyes; here in an 1895 walking dress of blue, a fitted bodice over a long flared skirt.
     'brigid': dict(
         height=1.7,
-        macro=dict(gender=0.0, age=0.52, muscle=0.45, weight=0.38, height=0.6, proportions=0.85, cupsize=0.45),
-        face={'head/head-oval': 0.7, 'head/head-scale-horiz-decr': 0.1, 'nose/nose-scale-horiz-decr': 0.35,
-              'nose/nose-point-up': 0.2, 'mouth/mouth-scale-horiz-decr': 0.1, 'eyes/r-eye-scale-incr': 0.2,
-              'eyes/l-eye-scale-incr': 0.2, 'cheek/l-cheek-volume-decr': 0.15, 'cheek/r-cheek-volume-decr': 0.15, 'cheek/l-cheek-bones-incr': 0.4, 'cheek/r-cheek-bones-incr': 0.4,
-              'mouth/mouth-upperlip-volume-incr': 0.3, 'mouth/mouth-lowerlip-volume-incr': 0.2,
-              'eyebrows/eyebrows-angle-up': 0.4, 'chin/chin-width-decr': 0.3, 'chin/chin-jaw-drop-decr': 0.2},
-        hair=['elvs_reverse_french_braid_bun'], puff=0.01, hair_color='#7a2a16', eyebrows='eyebrow009', eyes='deepblue',
-        skin='young_caucasian_female2', clothes=['toigo_female_suit', 'shoes01'], top='#25386a', shoes='#14100d',
-        gown='#34498a', hand_clearance=0.15,
+        macro=dict(gender=0.0, age=0.47, muscle=0.4, weight=0.36, height=0.62, proportions=0.9, cupsize=0.5,
+                   firmness=0.6),
+        # a heart-shaped face: high cheekbones, a small chin and neat jaw, full lips, large eyes under arched brows
+        face={'head/head-invertedtriangular': 0.45, 'head/head-oval': 0.4, 'head/head-scale-horiz-decr': 0.12,
+              'chin/chin-width-decr': 0.6, 'chin/chin-height-decr': 0.25, 'chin/chin-jaw-drop-decr': 0.3,
+              'chin/chin-prominent-decr': 0.15, 'cheek/l-cheek-bones-incr': 0.55, 'cheek/r-cheek-bones-incr': 0.55,
+              'cheek/l-cheek-volume-decr': 0.2, 'cheek/r-cheek-volume-decr': 0.2,
+              'nose/nose-scale-horiz-decr': 0.4, 'nose/nose-scale-vert-decr': 0.15, 'nose/nose-point-up': 0.25,
+              'nose/nose-width1-decr': 0.3, 'nose/nose-nostrils-width-decr': 0.3,
+              'mouth/mouth-upperlip-volume-incr': 0.5, 'mouth/mouth-lowerlip-volume-incr': 0.45,
+              'mouth/mouth-cupidsbow-incr': 0.5, 'mouth/mouth-scale-horiz-decr': 0.1, 'mouth/mouth-angles-up': 0.15,
+              'eyes/r-eye-scale-incr': 0.1, 'eyes/l-eye-scale-incr': 0.1, 'eyes/r-eye-corner2-up': 0.25,
+              'eyes/l-eye-corner2-up': 0.25, 'eyes/r-eye-eyefold-down': 0.2, 'eyes/l-eye-eyefold-down': 0.2,
+              'eyebrows/eyebrows-angle-up': 0.35, 'eyebrows/eyebrows-trans-up': 0.25,
+              'forehead/forehead-scale-vert-decr': 0.2, 'neck/neck-scale-horiz-decr': 0.35,
+              'neck/measure-neck-height-incr': 0.3, 'torso/measure-waist-circ-decr': 0.6,
+              'torso/measure-shoulder-dist-decr': 0.3, 'torso/measure-hips-circ-incr': 0.2},
+        # dark red hair dressed up off the neck, as an 1895 lady wore it
+        hair=['elvs_50s_updo'], hair_color='#3c130b', hair_ratio=0.7, eyebrows='eyebrow009', brows='#4a1a0e',
+        eyes='deepblue', iris='#2440a8',
+        skin='toigo_light_skin_with_natural_makeup', clothes=['toigo_female_suit', 'shoes01', 'toigo_gloves_short'],
+        # a clear cornflower-to-cobalt blue that stays blue under warm gaslight; the gloves a lighter kid blue
+        top='#2a4590', shirt='#efe9dc', shoes='#14100d', gloves='#4f78d8',
+        gown='#2f4f9e', bell=0.2, bell_back=0.45, skirt_follow=0.45, sleeves=0.02, hand_clearance=0.13,
+        gait='lady',
     ),
 }
 
@@ -906,20 +1349,45 @@ def build(name, c):
 
     suit = parts.get('toigo_male_suit_3')
     if suit:
-        # recolour the suit for 1895: the atlas holds jacket, shirt and tie; dark goes to wool, light to linen
-        split_tint(suit, c['suit'], c.get('shirt', '#e8e2d4'), c.get('split', 0.42))
+        # re-texture the suit for 1895: the atlas holds jacket, trousers, shirt and tie; plain wool (no pinstripe),
+        # linen, and a dark silk tie
+        reweave(suit, c['suit'], c.get('shirt', '#e8e2d4'), c.get('tie', '#141216'), c.get('split', 0.42),
+                kind=c.get('suit_kind', 'wool'), cloth_rects=[(0.812, 0.533, 0.895, 0.56)],  # no pocket square
+                tie_rects=[(0.84, 0.74, 0.94, 0.975)])
     for p in parts.values():
-        if c.get('top') and 'female_suit' in p.name: split_tint(p, c['top'], c.get('shirt', '#ece6d8'), 0.55, 0.8)
+        if c.get('top') and 'female_suit' in p.name:
+            reweave(p, c['top'], c.get('shirt', '#ece6d8'), None, 0.55, 0.9)
+            if c.get('sleeves'): gigot_sleeves(p, rig, c['sleeves'])
     for h in c.get('hair', []):
         if c.get('slick'): slick_hair(parts[h], body)
         if c.get('puff'): puff_hair(parts[h], body, c['puff'])
-    eye_colour(parts['low-poly'], c.get('eyes', 'grey'))
+    eye_colour(parts['low-poly'], c.get('eyes', 'grey'), c.get('iris'))
+    hair_hex = c['hair_color']
     for p in parts.values():
-        if p.name.endswith(tuple(h for h in c.get('hair', []))): tint(p, c['hair_color'], keep_texture=0.6, rough=0.55)
-        if 'shoes' in p.name: tint(p, c['shoes'], keep_texture=0.3, rough=0.35)
-        if 'moustache' in p.name: tint(p, c.get('moustache', c['hair_color']), keep_texture=0.7, rough=0.6)
-        if 'bowler' in p.name: tint(p, c.get('bowler', '#141414'), keep_texture=0.3, rough=0.5)
-        if 'cap' in p.name and c.get('cap'): tint(p, c['cap'], keep_texture=0.5, rough=0.9)
+        if p.name.endswith(tuple(h for h in c.get('hair', []))): tint(p, hair_hex, keep_texture=0.6)
+        if 'shoes' in p.name: tint(p, c['shoes'], keep_texture=0.3)
+        if 'moustache' in p.name: tint(p, c.get('moustache', hair_hex), keep_texture=0.45)
+        if 'eyebrow' in p.name: tint(p, c.get('brows', c.get('moustache', hair_hex)), keep_texture=0.3)
+        if 'eyelashes' in p.name: tint(p, '#1a1410', keep_texture=0.2)
+        if 'bowler' in p.name: tint(p, c.get('bowler', '#141414'), keep_texture=0.3)
+        if 'cap' in p.name and c.get('cap'): tint(p, c['cap'], keep_texture=0.5)
+        if 'gloves' in p.name: tint(p, c.get('gloves', '#141210'), keep_texture=0.35)
+    # clean materials for the game: no clearcoat, no stray bump/normal maps, hair and brows alpha-tested
+    for p in parts.values():
+        n = p.name
+        if n.endswith(tuple(c.get('hair', []))) or 'moustache' in n or 'beard' in n: finish(p, 0.55, cutout=True)
+        elif 'eyebrow' in n or 'eyelashes' in n: finish(p, 0.8, cutout=True)
+        elif n.endswith('low-poly'): finish(p, 0.12)
+        elif 'shoes' in n: finish(p, 0.32)
+        # (no sheen on cloth: a grey sheen turns black wool brown and blue silk lavender under warm lamps)
+        elif 'gloves' in n: finish(p, 0.6)
+        elif 'bowler' in n or 'cap' in n: finish(p, 0.7)
+        elif 'suit' in n: finish(p, 0.85)
+        else: finish(p, 0.75)
+    if c.get('skin_tone'):  # a multiply over the skin texture: Cairo's Levantine olive
+        tone = [x for x in hex01(c['skin_tone'])]
+        bake_base_colour(body, lambda rgb, lum: rgb * tone)
+    finish(body, c.get('skin_rough', 0.5), sheen=0.25, sheen_tint=(1.0, 0.55, 0.45))
 
     sources = [body] + [p for p in parts.values() if 'suit' in p.name]
     if c.get('coat') == 'inverness':
@@ -942,10 +1410,11 @@ def build(name, c):
         z_knee = bone_head(rig, 'calf_l').z
         def opening(z):  # radians open at the front: a V to the waist button, then cut away toward the hem
             if z > z_waist: return 0.16 + 1.1 * ((z - z_waist) / (z_neck - z_waist)) ** 1.3
-            return 0.16 + 0.55 * ((z_waist - z) / (z_waist - z_knee)) ** 1.5
+            return 0.16 + c.get('cutaway', 0.55) * ((z_waist - z) / (z_waist - z_knee)) ** 1.5
         coat = long_coat('Coat', rig, sources, wool, z_neck, z_knee - 0.04, offset=0.01, flare=0.03, collar=False,
                          gap=opening)
         transfer_weights(coat, body, rig, skirt_weights(rig, bone_head(rig, 'thigh_l').z + 0.05, z_knee))
+        coat_sleeves('CoatSleeves', parts['toigo_male_suit_3'], wool)
         if c.get('chain'):
             bvh = world_mesh_bvh([o for o in sources if 'suit' in o.name] or [body])
             def surf(x, z):
@@ -966,6 +1435,7 @@ def build(name, c):
         coat = long_coat('Coat', rig, sources, wool, z_neck, z_hem, offset=0.016, flare=0.04, collar=done_up,
                          gap=opening)
         transfer_weights(coat, body, rig, skirt_weights(rig, bone_head(rig, 'thigh_l').z + 0.05, z_knee))
+        coat_sleeves('CoatSleeves', parts['toigo_male_suit_3'], wool, 0.012)
         zs = [z_neck - 0.06 - i * 0.1 for i in range(5 if done_up else 3)]
         if not done_up: zs = [z_waist + 0.02 - i * 0.1 for i in range(3)]
         cols = [front_of(coat, 0.035, z) for z in zs]
@@ -976,22 +1446,32 @@ def build(name, c):
         z_waist = bone_head(rig, 'spine_01').z + 0.05
         z_floor = bone_head(rig, 'foot_l').z - 0.02
         centre = (0.0, bone_head(rig, 'pelvis').y)
-        bvh = world_mesh_bvh(sources, ARM_GROUPS)
+        bvh = world_mesh_bvh([body], ARM_GROUPS, unmasked=True)  # fitted to the body: the jacket's basque falls over it
         z_hip = bone_head(rig, 'thigh_l').z - 0.04
-        ring = lambda z: smooth_ring([x + 0.035 for x in envelope(bvh, z, centre, 48)], 3)
+        ring = lambda z: smooth_ring([x + 0.03 for x in envelope(bvh, z, centre, 48)], 3)
         hip = ring(z_hip)
         rows = []
         for i in range(9):  # fitted from the waist over the hips
             z = z_waist - (z_waist - z_hip) * i / 8
             rows.append((z, [max(a, b * (0.7 + 0.3 * i / 8)) for a, b in zip(ring(z), hip)]))
         steps = int((z_hip - z_floor) / 0.04)
+        bell, back = c.get('bell', 0.24), c.get('bell_back', 0.35)
         for i in range(1, steps + 1):  # then a bell, widening toward the hem, more behind than in front
             t = i / steps
             z = z_hip - (z_hip - z_floor) * t
-            rows.append((z, [r + 0.24 * t ** 1.4 * (1 + 0.35 * (1 - math.cos(2 * math.pi * k / 48)) / 2)
+            rows.append((z, [r + bell * t ** 1.4 * (1 + back * (1 - math.cos(2 * math.pi * k / 48)) / 2)
                              for k, r in enumerate(hip)]))
         skirt = garment('Skirt', silk, rows, centre, seg=48)
-        transfer_weights(skirt, body, rig, skirt_weights(rig, bone_head(rig, 'thigh_l').z + 0.05, z_floor))
+        transfer_weights(skirt, body, rig, skirt_weights(rig, bone_head(rig, 'thigh_l').z + 0.05, z_floor,
+                                                         c.get('skirt_follow', 0.5)))
+    if c.get('gardenia'):
+        suitm = parts['toigo_male_suit_3']
+        bvh = world_mesh_bvh([o for o in rig.children if o.type == 'MESH' and o.name in ('Coat', suitm.name)])
+        def surf(x, z):
+            loc, *_ = bvh.ray_cast(Vector((x, -1, z)), Vector((0, 1, 0)), 2)
+            return loc.y if loc else -0.12
+        buttonhole_flower(rig, surf, plain(f'{name}_petal', '#f3eedf', 0.55), plain(f'{name}_leaf', '#1f3a1c', 0.5),
+                          0.085, bone_head(rig, 'spine_03').z + 0.1)
     if c.get('tunic'):
         # police tunic: brass buttons down the front and a black belt
         suitm = [o for o in sources if 'suit' in o.name][0]
@@ -1015,12 +1495,25 @@ def build(name, c):
         cane(rig, c['cane'], plain(f'{name}_ebony', '#0f0b09', 0.22), plain(f'{name}_silver', '#cfcfcf', 0.25, 1.0),
              plain(f'{name}_brass', '#b08a3e', 0.35, 1.0))
     if c.get('hat') == 'tophat':
-        top_hat(rig, body, plain(f'{name}_silk', '#0a0a0a', 0.3))
+        top_hat(rig, body, plain(f'{name}_silk', '#0a0a0a', 0.38))
     if c.get('hat') == 'deerstalker':
         deerstalker(rig, body, fabric(f'{name}_cap', c.get('cap', c['tweed']), 'tweed', scale=3))
+    hats = [o for o in rig.children if o.type == 'MESH' and any(k in o.name for k in ('TopHat', 'Helmet', 'Deerstalker',
+                                                                                       'bowler', 'flat_cap'))]
+    for hat in hats:
+        for hname in c.get('hair', []): hair_under_hat(parts[hname], body, hat)
+
+    # phone budget: drop the hidden skin, thin out everything but the face
+    before = sum(triangles(o) for o in rig.children if o.type == 'MESH')
+    h, top = head_frame(rig, body)  # (measured before decimation)
+    parts['_hair'] = [parts[x].name for x in c.get('hair', [])]
+    # with no coat over it the jacket shows: give it more of the budget
+    optimise(rig, body, parts, c.get('hair_ratio', 0.55), None if c.get('coat') or c.get('gown') else 0.25)
+    parts.pop('_hair')
+    rows = sorted(((triangles(o), o.name) for o in rig.children if o.type == 'MESH'), reverse=True)
+    print('TRIS', name, before, '->', sum(n for n, _ in rows), ' '.join(f'{nm}:{n}' for n, nm in rows))
 
     # scale to the character's height (top of the head; the game expects metres)
-    h, top = head_frame(rig, body)
     s = c['height'] / top
     rig.scale = (s, s, s)
     bpy.ops.object.select_all(action='DESELECT')
@@ -1028,7 +1521,7 @@ def build(name, c):
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     for o in rig.children:
         o.select_set(True)
-    make_clips(rig)
+    make_clips(rig, c.get('gait', 'gent'), c.get('cane'))
 
     # keep phones happy: small textures, JPEG wherever there is no transparency, Draco geometry
     body_mat = body.data.materials[0]
@@ -1041,6 +1534,8 @@ def build(name, c):
     tidy(name)
     os.makedirs(os.path.join(ROOT, 'art', 'humans'), exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT, 'art', 'humans', f'{name}.blend'))
+    for o in [rig] + list(rig.children):  # only walk_speed goes to the game in the glTF extras, not MPFB's notes
+        for k in [k for k in o.keys() if k.startswith(('MPFB', 'Mh'))]: del o[k]
     bpy.ops.object.select_all(action='DESELECT')
     rig.select_set(True)
     for o in rig.children: o.select_set(True)
@@ -1048,7 +1543,7 @@ def build(name, c):
                               use_selection=True, export_yup=True, export_apply=True, export_animations=True,
                               export_animation_mode='NLA_TRACKS', export_image_format='JPEG',
                               export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=7,
-                              export_jpeg_quality=85, export_cameras=False, export_lights=False)
+                              export_jpeg_quality=85, export_cameras=False, export_lights=False, export_extras=True)
     return rig, body
 
 
@@ -1086,6 +1581,14 @@ def render(rig, body, out, name):
     scene.render.resolution_x, scene.render.resolution_y = (900, 1200)
     scene.render.filepath = os.path.join(out, f'{name}_walk.png')
     bpy.ops.render.render(write_still=True)
+    # the open-handed gesture of the Talk clip, and the far side of the walk
+    for tag, track, frame, loc in (('talk', 'Talk', 50, (0.9, -3.2, 1.3)), ('walk2', 'Walk', 26, (-2.6, -3.0, 1.1))):
+        for t in rig.animation_data.nla_tracks: t.mute = t.name != track
+        scene.frame_set(frame)
+        cam.location = loc
+        cam.rotation_euler = (Vector((0, 0, 1.0)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
+        scene.render.filepath = os.path.join(out, f'{name}_{tag}.png')
+        bpy.ops.render.render(write_still=True)
 
 
 only = arg('--only')

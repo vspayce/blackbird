@@ -33,6 +33,12 @@ def book(x, y, z, rot, tilt=0.0, mat='rosewood_panel'):
     lbox(F, 'canvas', -0.11, 0.11, 0.004, 0.036, -0.165, 0.16)
 
 
+def seat(x, z, rot, mat='velvet_red'):
+    """A chair that collides (the kit's chair() is set dressing only)."""
+    chair(x, z, rot, mat)
+    collide_local(Matrix.Translation((x, 0, z)) @ Matrix.Rotation(rot, 4, 'Y'), -0.27, 0.27, 0, 1.05, -0.27, 0.29)
+
+
 def into_room(F, L, centre=Vector((0, 0, 0))):
     """Which side of a wall (as returned by wall()) faces the room: +1 along the frame's normal, else -1."""
     n = F.to_3x3() @ Vector((0, 0, 1))
@@ -427,13 +433,14 @@ def furnish_suite():
     cyl('brass', F @ Vector((-0.55, 0.785, -0.2)), 0.25, 0.06, 0.03, seg=10)  # a student lamp
     sphere('lamp_glass', F @ Vector((-0.55, 1.1, -0.2)), 0.08, 10)
     p = F @ Vector((-0.55, 1.15, -0.2)); LAMPS.append([round(p.x, 3), 1.15, round(p.z, 3)])
-    collide(3.2, 0, -4.6, 4.1, 0.8, -3.0)
-    chair(2.8, -3.8, math.pi / 2 + 0.9, 'velvet_red')  # pushed back hard
+    collide(2.84, 0, -4.6, 4.1, 0.8, -3.0)  # to the ends of the pulled-out drawers
+    seat(2.8, -3.8, math.pi / 2 + 0.9, 'velvet_red')  # pushed back hard
     for k in range(14):
         paper(2.0 + (k * 0.37) % 2.2, -4.8 + (k * 0.61) % 2.6, k * 0.7)
     PLACES['desk'] = [3.6, 0.9, -3.8]
     # books pulled from the case by the door and dropped
     bookcase_run(frame((-5 + T / 2, 0, 5.8), (0, 0, -1), (1, 0, 0)), 0.2, 1.8, h=2.4)
+    collide(-5 + T / 2, 0, 3.9, -4.3, 2.4, 6 - T / 2)
     for k in range(7):
         book(-4.1 + (k % 3) * 0.35, 0.0, 4.6 - k * 0.25, k * 0.9, tilt=(k % 2) * 0.3)
     PLACES['books'] = [-4.0, 0.5, 4.4]
@@ -464,7 +471,7 @@ def furnish_suite():
     gasolier(0, H2 - 0.42, 0, drop=1.0)
     frame_painting(frame((5 - T / 2, 0, -6), (0, 0, 1), (-1, 0, 0)), 2.6, 1.6, 1.3, 1.0, 4)
     frame_painting(frame((-5 + T / 2, 0, 6), (0, 0, -1), (1, 0, 0)), 9.0, 1.5, 1.6, 1.2, 12)
-    PLACES['window'] = [0, 1.6, -6.4]
+    PLACES['window'] = [0, 1.2, -6.0]  # (its marker is 1.4 m up: at y 1.6 it sat 3 m up, off Holmes's floor)
     # Market Street below the bay: the far side is about 36 m off; the suite is on the third floor
     street_view('market', -42.0, -7.4, -40.0, 40.0, -10.0, seed=1)
     from build_city import hack
@@ -492,7 +499,7 @@ def main():
                               export_draco_mesh_compression_level=7, export_cameras=False, export_lights=False)
     with open(os.path.join(ROOT, 'public', 'models', 'palace.json'), 'w') as f:
         json.dump(dict(colliders=bh.COLLIDERS, lamps=[[round(v, 3) for v in p] for p in bh.LAMPS], places=PLACES,
-                       spawn=dict(pos=[0, 0, 5.0], yaw=math.pi)), f, separators=(',', ':'))
+                       spawn=dict(pos=[0, 0, 5.0], yaw=math.pi, watson=[-1.3, 0, -1.4])), f, separators=(',', ':'))
     if RENDER: preview(RENDER)
 
 

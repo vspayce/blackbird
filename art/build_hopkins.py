@@ -1305,12 +1305,17 @@ def stair_runner():
 # The house stands on a terrace (y = 0) behind a granite retaining wall; California Street runs below it.
 # The game walks Holmes over these levels with GROUND (exported in hopkins.json).
 
-STREET_Y = -2.2
-WALL_Z0, WALL_Z1 = 29.5, 30.3
+# Orientation: the lot is on the south side of California Street between Powell and Mason (999 California), so
+# the house faces north (+z); +x is west (Mason Street, the hill falling away toward Pine), -x is east (Stanford's
+# house, toward Powell). On California Street the terrace is only about a metre above the sidewalk, behind a low
+# granite wall with an iron fence; the tall retaining walls are on Mason and Pine, where the ground drops.
+STREET_Y = -1.0
+WALL_Z0, WALL_Z1 = 25.4, 26.0
+SZ = WALL_Z1 - 30.3  # the street's features were laid out for a fence at z = 30.3; they move with it
 RAMPS = [  # x0, x1, z0, z1, y at z0, y at z1
-    (-14.5, -9.5, 23.5, WALL_Z1, 0.0, STREET_Y),   # west carriage gate
-    (9.5, 14.5, 23.5, WALL_Z1, 0.0, STREET_Y),     # east carriage gate
-    (-1.6, 1.6, 26.6, WALL_Z1, 0.0, STREET_Y),     # the front steps
+    (-14.5, -9.5, 22.0, WALL_Z1, 0.0, STREET_Y),   # east carriage gate
+    (9.5, 14.5, 22.0, WALL_Z1, 0.0, STREET_Y),     # west carriage gate
+    (-1.6, 1.6, 24.4, WALL_Z1, 0.0, STREET_Y),     # the front steps
 ]
 
 
@@ -1693,9 +1698,13 @@ def urn(x, y, z, s=1.0):
 
 
 def gate_pier(x, z, h):
+    """A square granite gate pier with a moulded cap and a pyramid on top (as in the photographs)."""
     wbox('granite', x - 0.5, x + 0.5, STREET_Y, h, z - 0.5, z + 0.5)
-    wbox('trim_cream', x - 0.6, x + 0.6, h, h + 0.18, z - 0.6, z + 0.6)
-    pinnacle(x, h + 0.18, z, h=1.2, r=0.28)
+    wbox('stone', x - 0.6, x + 0.6, h, h + 0.2, z - 0.6, z + 0.6)
+    bm = bm_for('granite')
+    c = [(x - 0.52, h + 0.2, z - 0.52), (x + 0.52, h + 0.2, z - 0.52), (x + 0.52, h + 0.2, z + 0.52), (x - 0.52, h + 0.2, z + 0.52)]
+    for a, b in zip(c, c[1:] + c[:1]):
+        bm.faces.new([bm.verts.new(p) for p in (a, b, (x, h + 0.85, z))])
     collide(x - 0.5, STREET_Y, z - 0.5, x + 0.5, h, z + 0.5)
 
 
@@ -1713,8 +1722,8 @@ def iron_gate_leaf(xh, s, z, y0, L=2.3, ang=1.3):
 
 
 def street_and_neighbours():
-    # the retaining wall along California Street, with the gates and the steps
-    wall_top = 1.1
+    # the low granite wall along California Street with its coping and iron fence, the gates and the steps
+    wall_top = 0.45
     segs = [(-40, -14.5), (-9.5, -1.6), (1.6, 9.5), (14.5, 40)]
     for a0, a1 in segs:
         wbox('granite', a0, a1, STREET_Y - 0.3, wall_top, WALL_Z0, WALL_Z1)
@@ -1725,13 +1734,22 @@ def street_and_neighbours():
             wbox('trim_dark', a0, a1, y, y + 0.04, WALL_Z1, WALL_Z1 + 0.02)
         # a railing of iron spears on the parapet
         for x in np.arange(a0 + 0.2, a1, 0.25):
-            tube('iron', [(x, wall_top + 0.14, (WALL_Z0 + WALL_Z1) / 2), (x, wall_top + 1.0, (WALL_Z0 + WALL_Z1) / 2)], 0.012, 4)
-        tube('iron', [(a0, wall_top + 0.9, (WALL_Z0 + WALL_Z1) / 2), (a1, wall_top + 0.9, (WALL_Z0 + WALL_Z1) / 2)], 0.018, 4)
+            tube('iron', [(x, wall_top + 0.14, (WALL_Z0 + WALL_Z1) / 2), (x, wall_top + 1.35, (WALL_Z0 + WALL_Z1) / 2)], 0.012, 4)
+            cyl('iron', (x, wall_top + 1.35, (WALL_Z0 + WALL_Z1) / 2), 0.12, 0.03, 0.0, seg=4, cap=False)
+        for y in (wall_top + 0.35, wall_top + 1.2):
+            tube('iron', [(a0, y, (WALL_Z0 + WALL_Z1) / 2), (a1, y, (WALL_Z0 + WALL_Z1) / 2)], 0.018, 4)
+        collide(a0, wall_top, WALL_Z0, a1, wall_top + 1.4, WALL_Z1)
+        # square piers along the fence between the gates
+        k = a0 + 6.0
+        while k < a1 - 3.0:
+            gate_pier(k, (WALL_Z0 + WALL_Z1) / 2, 1.3)
+            k += 6.0
     for x in (-14.5, -9.5, -1.6, 1.6, 9.5, 14.5):
-        gate_pier(x, (WALL_Z0 + WALL_Z1) / 2, 2.0 if abs(x) > 2 else 1.6)
+        gate_pier(x, (WALL_Z0 + WALL_Z1) / 2, 1.9 if abs(x) > 2 else 1.6)
     for x in (-14.5, -9.5, 9.5, 14.5):
-        LAMPS.append([x, 3.9, (WALL_Z0 + WALL_Z1) / 2])
-        cyl('lamp_glass', (x, 3.6, (WALL_Z0 + WALL_Z1) / 2), 0.4, 0.14, 0.18, seg=6)
+        LAMPS.append([x, 3.1, (WALL_Z0 + WALL_Z1) / 2])
+        cyl('iron', (x, 2.7, (WALL_Z0 + WALL_Z1) / 2), 0.15, 0.08, seg=6)
+        cyl('lamp_glass', (x, 2.85, (WALL_Z0 + WALL_Z1) / 2), 0.45, 0.14, 0.18, seg=6)
     # the carriage gates stand open, folded back against the cheek walls
     for (xh, s) in ((-14.1, 1), (-9.9, -1), (9.9, 1), (14.1, -1)):
         iron_gate_leaf(xh, s, WALL_Z0 - 0.1, ground(xh, WALL_Z0 - 0.1))
@@ -1752,38 +1770,47 @@ def street_and_neighbours():
             wbox('granite', min(x, x + s * 0.35), max(x, x + s * 0.35), STREET_Y - 0.2, 0.9, z0, z1)
             collide(min(x, x + s * 0.35), STREET_Y, z0, max(x, x + s * 0.35), 0.9, z1)
     # California Street: flagged sidewalks, the granite kerb, cobbles and the cable car slot
-    wbox('flags', -80, 80, STREET_Y - 0.3, STREET_Y, WALL_Z1, 33.3)
-    wbox('granite', -80, 80, STREET_Y - 0.3, STREET_Y, 33.3, 33.5)
-    wbox('cobbles', -80, 80, STREET_Y - 0.45, STREET_Y - 0.15, 33.5, 45.5)
-    wbox('granite', -80, 80, STREET_Y - 0.3, STREET_Y, 45.5, 45.7)
-    wbox('flags', -80, 80, STREET_Y - 0.3, STREET_Y, 45.7, 49.0)
-    for z in (38.6, 39.4, 40.6, 41.4):  # rails for the up and down tracks
+    wbox('flags', -80, 80, STREET_Y - 0.3, STREET_Y, WALL_Z1, 33.3 + SZ)
+    wbox('granite', -80, 80, STREET_Y - 0.3, STREET_Y, 33.3 + SZ, 33.5 + SZ)
+    wbox('cobbles', -80, 80, STREET_Y - 0.45, STREET_Y - 0.15, 33.5 + SZ, 45.5 + SZ)
+    wbox('granite', -80, 80, STREET_Y - 0.3, STREET_Y, 45.5 + SZ, 45.7 + SZ)
+    wbox('flags', -80, 80, STREET_Y - 0.3, STREET_Y, 45.7 + SZ, 49.0 + SZ)
+    for z in (38.6 + SZ, 39.4 + SZ, 40.6 + SZ, 41.4 + SZ):  # rails for the up and down tracks
         wbox('iron', -80, 80, STREET_Y - 0.15, STREET_Y - 0.13, z - 0.04, z + 0.04)
-    for z in (39.0, 41.0):  # the cable slots
+    for z in (39.0 + SZ, 41.0 + SZ):  # the cable slots
         wbox('roof', -80, 80, STREET_Y - 0.15, STREET_Y - 0.14, z - 0.015, z + 0.015)
     # street lamps on both sidewalks
     for x in (-30, -12, 6, 24):
-        LAMPS.append(list(gas_lamp(x, 32.6, y=STREET_Y)))
+        LAMPS.append(list(gas_lamp(x, 32.6 + SZ, y=STREET_Y)))
     for x in (-21, -3, 15, 33):
-        LAMPS.append(list(gas_lamp(x, 46.3, y=STREET_Y)))
-    for (x, z) in ((-30, 32.6), (-12, 32.6), (6, 32.6), (24, 32.6), (-21, 46.3), (-3, 46.3), (15, 46.3), (33, 46.3)):
+        LAMPS.append(list(gas_lamp(x, 46.3 + SZ, y=STREET_Y)))
+    for (x, z) in ((-30, 32.6 + SZ), (-12, 32.6 + SZ), (6, 32.6 + SZ), (24, 32.6 + SZ), (-21, 46.3 + SZ), (-3, 46.3 + SZ), (15, 46.3 + SZ), (33, 46.3 + SZ)):
         collide(x - 0.2, STREET_Y, z - 0.2, x + 0.2, STREET_Y + 3.5, z + 0.2)
     # a California Street cable car, standing on the down track at the end of its run
-    cable_car(22, STREET_Y, 41.0)
+    cable_car(22, STREET_Y, 41.0 + SZ)
     # hitching posts on the far kerb
     for x in (-7, -5.5):
-        cyl('iron', (x, STREET_Y, 45.9), 1.0, 0.05, 0.04, seg=8)
-        sphere('iron', (x, STREET_Y + 1.05, 45.9), 0.07, 8)
+        cyl('iron', (x, STREET_Y, 45.9 + SZ), 1.0, 0.05, 0.04, seg=8)
+        sphere('iron', (x, STREET_Y + 1.05, 45.9 + SZ), 0.07, 8)
     # the street ends: invisible walls so you stay on this block
-    collide(-60, STREET_Y, 30, -59, 3, 50); collide(59, STREET_Y, 30, 60, 3, 50); collide(-60, STREET_Y, 49.0, 60, 3, 49.3)
+    collide(-60, STREET_Y, WALL_Z1, -59, 3, 50 + SZ); collide(66, STREET_Y, WALL_Z1, 67, 3, 50 + SZ)
+    collide(40.2, STREET_Y, WALL_Z0 - 0.4, 66, 3, WALL_Z1)  # (Mason Street falls away below the corner)
+    collide(-60, STREET_Y, 49.0 + SZ, 67, 3, 49.3 + SZ)
 
-    # across the street: James Flood's brownstone (1886), with its famous bronze fence
-    flood(-24, 26, 49.3)
-    # next door to the east: Leland Stanford's house, seen over the side wall; to the west, across Mason
-    # Street, the Colton house
-    stanford(44, -12, 24)
-    mason_street()
-
+    # across California and Mason Streets to the north-west: James Flood's brownstone (1886), its bronze fence
+    flood(58.5, 98.5, 49.3 + SZ)
+    # straight across California Street: two big Italianates (invented; the photographs do not show them)
+    for (x0, x1, wall) in ((-44, -18, 'paint_white'), (-12, 14, 'brownstone')):
+        mansion(frame((x1, STREET_Y + 1.2, 49.3 + SZ + 3.0), (-1, 0, 0), (0, 0, -1)), x1 - x0, 16, 11.0, wall=wall, lit_p=0.35, portico=4)
+    # next door to the east (-x), toward Powell: Leland Stanford's house; to the west (+x) Mason Street falls
+    # toward Pine below the terrace's tall retaining wall, with the Colton house beyond it
+    with mirrored_x():
+        stanford(44, -16, 18)
+        mason_street()
+    # Pine Street side: the terrace ends at a tall granite retaining wall
+    wbox('granite', -41, 41, -7.0, 0.9, -18.3, -17.5)
+    wbox('stone', -41.1, 41.1, 0.9, 1.05, -18.4, -17.4)
+    collide(-41, -1.0, -18.3, 41, 2.0, -17.5)
 
 def cable_car(x, y, z):
     L, W = 7.5, 2.4
@@ -1849,7 +1876,7 @@ def flood(x0, x1, z):
         tube('bronze', [(xc + 1.6, y, z + 0.2), (x1 + 2, y, z + 0.2)], 0.025, 4)
     for x in np.arange(x0 - 2, x1 + 2.1, 3.0):
         wbox('bronze', x - 0.15, x + 0.15, STREET_Y + 0.55, STREET_Y + 2.0, z + 0.05, z + 0.35)
-    INTERACT.append(dict(id='flood', label="Flood's bronze fence", pos=[xc + 3.0, STREET_Y + 1.2, z - 0.4], r=2.2))
+    INTERACT.append(dict(id='flood', label="Flood's bronze fence", pos=[x0 + 2.5, STREET_Y + 1.2, z - 0.4], r=2.2))
     # a garden behind the fence
     for x in np.arange(x0 - 1, x1 + 1, 4.0):
         cypress(x, z + 1.6, 4.0, STREET_Y)
@@ -1936,6 +1963,8 @@ def stanford(x0, z0, z1):
     # the garden wall between the two lots, with a coping and the tops of shrubs over it
     wbox('brick_red', x0 - 3.2, x0 - 2.8, -0.2, 1.9, z0 - 4, WALL_Z0)
     wbox('stone', x0 - 3.3, x0 - 2.7, 1.9, 2.05, z0 - 4, WALL_Z0)
+    collide(x0 - 3.3, -0.2, z0 - 4, x0 - 2.7, 2.05, WALL_Z0)
+    collide(x0 - 0.3, -1.2, z0, x0 + 20, 11.0, z1 + 3.0)   # the house itself
 
 
 def colton(x0, z0, z1):
@@ -1950,26 +1979,35 @@ def colton(x0, z0, z1):
 
 
 def mason_street():
-    """Mason Street, down the west side of the Hopkins terrace below its wall, so the lawn's west edge looks
-    onto something: the street, its lamps and the Colton house over the way."""
-    wbox('cobbles', -58, -44, STREET_Y - 0.45, STREET_Y - 0.15, -30, 33.3)
-    wbox('flags', -44, -41, STREET_Y - 0.3, STREET_Y, -30, 33.3)
-    wbox('flags', -61, -58, STREET_Y - 0.3, STREET_Y, -30, 33.3)
-    wbox('granite', -41, -40.2, STREET_Y - 0.3, 0.9, -17.5, WALL_Z0)      # the terrace's retaining wall
-    wbox('trim_cream', -41.1, -40.1, 0.9, 1.04, -17.5, WALL_Z0)
+    """Mason Street down the west side of the terrace (built at -x, then mirrored to +x by the caller): it falls
+    from California Street toward Pine below the terrace's tall granite retaining wall; the Colton house beyond."""
+    zn, zs, drop = WALL_Z0, -40.0, 7.0
+    def y_at(z): return STREET_Y - drop * (zn - z) / (zn - zs) if z < zn else STREET_Y
+    for (x0, x1, mat, dy) in ((-58, -44, 'cobbles', -0.15), (-44, -41, 'flags', 0.0), (-61, -58, 'flags', 0.0)):
+        bm = bm_for(mat)
+        q = [(x0, y_at(zs) + dy, zs), (x0, y_at(zn) + dy, zn), (x1, y_at(zn) + dy, zn), (x1, y_at(zs) + dy, zs)]
+        bm.faces.new([bm.verts.new(p) for p in q])
+    z = zn
+    while z > -17.5:  # the retaining wall, stepping down with the street
+        za = max(-17.5, z - 4.0)
+        wbox('granite', -41, -40.2, y_at(za) - 0.3, 0.9, za, z)
+        for y in np.arange(y_at(za) + 0.6, 0.6, 0.6):
+            wbox('trim_dark', -41.02, -41.0, y, y + 0.04, za, z)
+        z = za
+    wbox('stone', -41.1, -40.1, 0.9, 1.05, -17.5, WALL_Z0)
+    collide(-41, -8.0, -17.5, -40.2, 2.0, WALL_Z0)
     for z in (-12, 4, 20):
-        LAMPS.append(list(gas_lamp(-43.4, z, y=STREET_Y)))
-    colton(-90, -14, 18)
-
+        LAMPS.append(list(gas_lamp(-43.4, z, y=y_at(z))))
+    colton(-90, -16, 16)
 
 def grounds_garden():
     # lawn in pieces, leaving the ramps open
-    wbox('grass', -40, 40, -0.2, -0.05, -17.5, 23.5)
+    wbox('grass', -40, 40, -0.2, -0.05, -17.5, 22.0)
     xs = [-40, -14.85, -9.15, -1.95, 1.95, 9.15, 14.85, 40]
     for a, b in zip(xs[0::2], xs[1::2]):
-        wbox('grass', a, b, -0.2, -0.05, 23.5, WALL_Z0)
+        wbox('grass', a, b, -0.2, -0.05, 22.0, WALL_Z0)
     # the drive: a gravel loop from gate to porte-cochere to gate
-    curve = [(-12 + 24 * t, 23.5 - 6.5 * math.sin(math.pi * t)) for t in np.linspace(0, 1, 33)]
+    curve = [(-12 + 24 * t, 22.0 - 5.0 * math.sin(math.pi * t)) for t in np.linspace(0, 1, 33)]
     bm = bm_for('gravel')
     for a, b in zip(curve, curve[1:]):
         A, B = Vector((a[0], -0.04, a[1])), Vector((b[0], -0.04, b[1]))
@@ -1986,12 +2024,12 @@ def grounds_garden():
         LAMPS.append(list(gas_lamp(p.x, p.z, h=3.2)))
         collide(p.x - 0.2, 0, p.z - 0.2, p.x + 0.2, 3.2, p.z + 0.2)
     # a fountain in the turning circle, flower beds and clipped hedges
-    fountain(0, 23.0)
+    fountain(-24, 16.0)
     for (x0, x1, z0, z1) in ((-30, -18, 20, 22), (18, 30, 20, 22), (-30, -18, 10, 12), (18, 30, 10, 12)):
         wbox('flowers', x0, x1, -0.05, 0.25, z0, z1)
         wbox('granite', x0 - 0.15, x1 + 0.15, -0.05, 0.3, z0 - 0.15, z0)
         wbox('granite', x0 - 0.15, x1 + 0.15, -0.05, 0.3, z1, z1 + 0.15)
-    for (x0, x1, z0, z1) in ((-38, -17, 26.5, 27.6), (17, 38, 26.5, 27.6), (-38, -37, -16, 26), (37, 38, -16, 26)):
+    for (x0, x1, z0, z1) in ((-38, -17, 23.6, 24.6), (17, 38, 23.6, 24.6), (-38, -37, -16, WALL_Z0), (37, 38, -16, WALL_Z0)):
         hedge(x0, x1, z0, z1, 1.2)
     for (x, z) in ((-34, 22), (34, 22), (-34, 8), (34, 8), (-34, -6), (34, -6), (-24, -14), (24, -14), (-28, 2), (28, 2)):
         cypress(x, z, 6.0)
@@ -2002,9 +2040,10 @@ def grounds_garden():
         urn(x, 1.0, 21.0)
         collide(x - 0.4, 0, 20.6, x + 0.4, 1.0, 21.4)
     for x in (-5.0, 5.0):
-        wbox('granite', x - 1.0, x + 1.0, 0.42, 0.5, 26.2, 26.7)
+        wbox('granite', x - 1.0, x + 1.0, 0.42, 0.5, 22.9, 23.4)
         for dx in (-0.8, 0.8):
-            wbox('granite', x + dx - 0.12, x + dx + 0.12, 0, 0.42, 26.3, 26.6)
+            wbox('granite', x + dx - 0.12, x + dx + 0.12, 0, 0.42, 23.0, 23.3)
+        collide(x - 1.0, 0, 22.9, x + 1.0, 0.5, 23.4)
     # the carriage waiting under the porte-cochere
     brougham(-8.2, 19.2, math.pi / 2 - 0.45)  # drawn up on the drive, clear of the door
 
@@ -2139,6 +2178,27 @@ def modelling_stand(x, z, idx):
     if idx % 2: sphere('clay', (x, 1.36, z), 0.13, 10)
     else: cyl('clay', (x, 1.24, z), 0.3, 0.12, 0.06, seg=8)
     collide(x - 0.35, 0, z - 0.35, x + 0.35, 1.5, z + 0.35)
+
+
+class mirrored_x:
+    """Build something, then mirror everything made inside the block across x = 0: geometry (faces turned back
+    the right way out), colliders, lamps and interactions."""
+    def __enter__(self):
+        self.v = {m: len(bm.verts) for m, bm in BM.items()}
+        self.f = {m: len(bm.faces) for m, bm in BM.items()}
+        self.nc, self.nl, self.ni = len(COLLIDERS), len(LAMPS), len(INTERACT)
+    def __exit__(self, *exc):
+        for m, bm in BM.items():
+            bm.verts.ensure_lookup_table(); bm.faces.ensure_lookup_table()
+            for v in bm.verts[self.v.get(m, 0):]:
+                v.co.x = -v.co.x
+            bmesh.ops.reverse_faces(bm, faces=list(bm.faces[self.f.get(m, 0):]))
+        for c in COLLIDERS[self.nc:]:
+            c[0], c[3] = -c[3], -c[0]
+        for l in LAMPS[self.nl:]:
+            l[0] = -l[0]
+        for i in INTERACT[self.ni:]:
+            i['pos'][0] = -i['pos'][0]
 
 
 class lifted:
@@ -2364,10 +2424,10 @@ def main():
                               export_draco_mesh_compression_level=7, export_cameras=False, export_lights=False)
     with open(os.path.join(ROOT, 'public', 'models', 'hopkins.json'), 'w') as f:
         json.dump(dict(colliders=COLLIDERS, lamps=[[round(v, 3) for v in p] for p in LAMPS], rooms=ROOMS,
-                       interact=INTERACT, spawn=dict(pos=[-4.0, STREET_Y, 47.4], yaw=math.pi),
+                       interact=INTERACT, spawn=dict(pos=[-4.0, STREET_Y, round(47.4 + SZ, 2)], yaw=math.pi),
                        ground=dict(street=STREET_Y, wall=WALL_Z1, ramps=RAMPS, stairs=STAIRS, levels=LEVELS),
                        hall=[-7, 7, -6, 10],
-                       tower=dict(top=[11.5, 22.0, -9.5], foot=[9.2, 0, -8.6])), f, separators=(',', ':'))
+                       tower=dict(top=hopkins_house.TOWER_TOP, foot=[9.2, 0, -8.6])), f, separators=(',', ':'))
     if RENDER: preview(RENDER)
 
 

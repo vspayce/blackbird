@@ -148,7 +148,10 @@ zips from `files2.makehumancommunity.org/asset_packs/...`:
 | `eyebrows01` | CC0 | extra eyebrows |
 | `bodyparts05` | CC0 | beards and moustaches |
 | `bodyparts06` | **CC-BY** | `grinsegold_moustache` |
-| `hats03` | **CC-BY** | `culturalibre_cl_bowler_hat` |
+| `hats03` | **CC-BY** | `culturalibre_cl_bowler_hat`, `elvs_male_flat_cap1` |
+| `hair02` | **CC-BY** | `elvs_grump_hair` (Holmes, Cairo), `elvs_50s_updo` (Brigid) |
+| `gloves01` | CC0 | `toigo_gloves_short` (Brigid's blue gloves) |
+| `skins01` | CC0 | `toigo_light_skin_with_natural_makeup` (Brigid) |
 
 Unzip them into MPFB's user data folder:
 
@@ -190,7 +193,7 @@ All in `art/`. Each writes a `.blend` you can open and a `.glb` in
 
 | Script | Builds | Command |
 |---|---|---|
-| `build_humans.py` | Holmes, Watson, Polhaus, Kelly, Archer | `BLENDER_USER_CONFIG=art/.blender-config Blender -b --python art/build_humans.py -- [--only holmes] [--render dir]` |
+| `build_humans.py` | the cast: Holmes, Watson, Polhaus, Kelly, Archer, Gutman, Wilmer, Cairo, Wren, Brigid | `BLENDER_USER_CONFIG=art/.blender-config Blender -b --python art/build_humans.py -- [--only holmes] [--render dir]` |
 | `build_set.py` | Burritt Alley and Bush Street | `Blender -b --factory-startup --python art/build_set.py -- [--render prefix]` |
 | `build_hopkins.py` | the Mark Hopkins Institute, grounds, street | `Blender -b --factory-startup --python art/build_hopkins.py -- [--render prefix]` |
 | `setkit.py` | shared kit for the two set builders | (imported) |
@@ -205,9 +208,15 @@ All in `art/`. Each writes a `.blend` you can open and a `.glb` in
 - coats, capes and hats built in the script and fitted to the body by
   ray-casting its silhouette;
 - a re-rest with the arms hanging at the sides;
-- hand-keyed `Idle`, `Walk`, `Talk` and `LieBack` clips.
+- the suit atlas re-woven (plain wool or tweed, no pinstripe; shirt, tie colour) and every material rebuilt
+  for glTF: no clearcoat or stray bump maps, hair and brows alpha-tested, a little sheen on skin and wool;
+- the phone budget: the skin hidden under clothes deleted, everything but the face collapse-decimated
+  (UV seams kept), about 10-15k triangles a character (the `TRIS` line in the log);
+- hand-keyed `Idle`, `Talk`, `LieBack`, `Aim` and `HandsUp` clips, and a `Walk` whose legs are placed by IK
+  so the planted foot stays put; its ground speed is stored as `walk_speed` in the glTF extras and
+  `figure.js` matches the clip's speed to it (no foot sliding). Gaits: `gent`, `lady` (Brigid), `heavy` (Gutman).
 
-Exported with Draco and JPEG textures, about 2 to 3 MB each.
+Exported with Draco and JPEG textures, about 1.0 to 1.4 MB each. `--render dir` also writes walk and talk frames.
 
 **Sets** (`build_set.py`, `build_hopkins.py`). Everything is modelled in the
 game's own coordinates (Y up, metres) and turned Z-up only at export, so a

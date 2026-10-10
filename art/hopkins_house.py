@@ -9,7 +9,7 @@
 #   - not a crenellated castle: a redwood house in a mixed Gothic / Second Empire manner, the boards painted and
 #     sanded to read as grey stone, with pilaster strips, panelled walls, belt courses and a heavy bracketed
 #     cornice under steep slate roofs;
-#   - along California Street, west to east: a corner pavilion with a steep hipped roof and gabled dormers; the
+#   - along California Street (the house faces north; +x is west), east to west: a corner pavilion with a steep hipped roof and gabled dormers; the
 #     entrance porch, a stone-looking block with a pointed carriage arch, corner piers with finials and a
 #     balustrade on top; a tall square tower with a steep concave mansard, gabled lucarnes with balconies, iron
 #     cresting and a needle spire; a round turret carried up from the ground with a tall "candle-snuffer" cone;
@@ -17,8 +17,8 @@
 #     finial; and at the east end a glass conservatory of pointed-arch gables round a ribbed dome;
 #   - iron cresting on the ridges and mansard tops, finials on every gable and hip;
 #   - the house on a terrace behind a granite retaining wall with square gate piers and an iron fence.
-# The tower here stands at the back east corner, over the game's tower stair (Gutman's observatory is fixed there
-# by src/cases/gutman.js); in 1878 it rose behind the porch, nearer the middle of the house.
+# The tower stands behind the porch as in the photographs; the game's tower stair (a door) is still in the back
+# room at -x, and lets Holmes out at TOWER_TOP.
 import math, random
 from setkit import *  # noqa: F401,F403
 
@@ -58,6 +58,12 @@ PROJ = {  # forward-standing blocks: (t0, t1) along the side, standing out PD
     'west': [(15.5, 28.225 + PD)],
 }
 CONS = (15.225, 21.4, -3.0, 3.0)  # the conservatory: x0, x1, z0, z1
+# The tower stands where the photographs put it: behind the entrance porch, its front in the street wall. It rises
+# from the attic over the front sitting room (ceiling 11) and over the front of the hall (ceiling 14.3); the
+# observatory floor is at 22. The tower stair (a door in the game) stays in the back east room.
+TOWER = (-3.3, 3.3, 7.4, 14.0)    # x0, x1, z0, z1
+TOWER_Y = 22.0
+TOWER_TOP = [0.0, TOWER_Y, round((TOWER[2] + TOWER[3]) / 2 + 1.0, 2)]   # where the stair lets Holmes out
 
 
 def side_frame(key, off=OFF):
@@ -274,8 +280,7 @@ def facade_detail():
             lbox(Fo, TRIM, u0, u1, 0.8, 0.92, 0, 0.2)
         lbox(Fo, TRIM, -0.25, L + 0.25, K.H - 0.05, K.H + 0.25, 0, 0.18)   # belt course
         lbox(Fo, TRIM, -0.25, L + 0.25, K.H - 0.28, K.H - 0.18, 0, 0.1)
-        if key != 'back_e':  # (the back east wall carries the tower)
-            bracket_cornice(Fo, -0.25, L + 0.25, EAVE)
+        bracket_cornice(Fo, -0.25, L + 0.25, EAVE)
         # pilaster strips: at the corners, and between the bays
         us = [0.25, L - 0.25]
         if key == 'front': us += [11.6]
@@ -300,9 +305,6 @@ def facade_detail():
                 lbox(Fp, 'ashlar', u - 0.24, u + 0.24, K.H + 0.25, EAVE - 0.85, 0, 0.12)
                 lbox(Fp, TRIM, u - 0.32, u + 0.32, K.H - 0.6, K.H - 0.28, 0, 0.18)
     K.front_door()
-    # the rear cornice where the tower does not stand
-    Fo, L = side_frame('back_e')
-    bracket_cornice(Fo, 7.0, L + 0.25, EAVE)
 
 
 # --- roofs -----------------------------------------------------------------------------------------
@@ -334,7 +336,7 @@ def roofs():
     # the main roof: a steep mansard over the front and middle of the house, flat on top with cresting
     deck = hip('slate', -15.725, 15.725, -7.2, 14.725, [(0, E), (2.8, DECK)], deck='roof')
     crest([(p.x, p.z) for p in deck], DECK, closed=True)
-    # the west corner pavilion: a taller hipped roof, steep then flatter, with a ridge of cresting and finials
+    # the east corner pavilion (toward Powell and Stanford's): a taller hipped roof, steep then flatter, with a ridge of cresting and finials
     top = hip('slate', -15.725 - PD, -6.3, 1.0, 14.725 + PD, [(-0.15, E - 0.1), (0.5, E + 1.0), (2.3, E + 5.6), (5.0, E + 8.2)])
     x = (top[0].x + top[1].x) / 2
     crest([(x, top[0].z), (x, top[3].z)], E + 8.2, step=0.5)
@@ -343,16 +345,7 @@ def roofs():
         cyl('iron', (x, E + 9.2, zz), 0.25, 0.12, 0.02, seg=4)
     dormer(Vector((-11.0 - PD / 2, E + 0.6, 14.725 + PD - 0.75)), (1, 0, 0), (0, 0, 1), lit=True)
     dormer(Vector((-15.725 - PD + 0.75, E + 0.6, 8.0)), (0, 0, 1), (-1, 0, 0))
-    # the front gable over the porch
-    g = gable(-4.5, 4.5, 6.0, 14.725, E, 7.0, axis='z')
-    barge(g[1])
-    c = Vector((0, E + 2.7, 14.25))
-    cyl(TRIM, c, 0.14, 1.05, seg=16, axis=(0, 0, 1))
-    cyl('stained', c + Vector((0, 0, 0.14)), 0.02, 0.85, seg=16, axis=(0, 0, 1))
-    for k in range(4):
-        a = k * math.pi / 4
-        tube(TRIM, [c + Vector((math.cos(a) * 0.85, math.sin(a) * 0.85, 0.17)), c + Vector((-math.cos(a) * 0.85, -math.sin(a) * 0.85, 0.17))], 0.035, 4)
-    # the great east gable on California Street: very steep, filled with lancet panels
+    # the great west gable on California Street: very steep, filled with lancet panels
     g = gable(6.5, 15.725, 0.0, 14.725 + PD, E, 9.0, axis='z')
     barge(g[1], finial=2.2)
     F = frame((11.1125, 0, 14.25 + PD), (1, 0, 0), (0, 0, 1))
@@ -364,25 +357,28 @@ def roofs():
         if hmax - (E + 0.6) < 0.8: continue
         lit = k in (-1, 1)
         K.lancet(F, u, E + 0.6, 0.62, hmax - (E + 0.6), lit=lit)
-    # the back west wing: a gable to the bay
+    # the back wing at -x (east): a gable to Pine Street
     g = gable(-15.725, -6.275, -14.725, -3.0, E, 7.0, axis='z')
     barge(g[0])
     Fb = frame((-11.0, 0, -14.25), (-1, 0, 0), (0, 0, -1))
     K.lancet(Fb, -0.6, E + 0.5, 0.6, 2.2, lit=True); K.lancet(Fb, 0.6, E + 0.5, 0.6, 2.2)
-    # a cross gable on the west side, over the bedroom
+    # a cross gable on the -x (east) side, over the bedroom
     g = gable(-15.725, -11.0, -5.6, 1.2, E, 5.6, axis='x', ends=(True, False))
     barge(g[0])
     Fw = frame((-15.25, 0, -2.2), (0, 0, 1), (-1, 0, 0))
     K.lancet(Fw, 0, E + 0.5, 0.7, 2.0)
-    # lean-to between the solarium and the tower
-    poly('slate', [(6.275, E, -14.725), (6.275, E, -7.0), (8.0, E + 1.4, -7.0), (8.0, E + 1.4, -14.725)])
+    # the back wing at +x (west): a gable to Pine Street, like the other
+    g = gable(6.275, 15.725, -14.725, -3.0, E, 7.0, axis='z')
+    barge(g[0])
+    Fb = frame((11.0, 0, -14.25), (-1, 0, 0), (0, 0, -1))
+    K.lancet(Fb, -0.6, E + 0.5, 0.6, 2.2); K.lancet(Fb, 0.6, E + 0.5, 0.6, 2.2, lit=True)
     # lucarnes on the mansard
     dormer(Vector((15.725 - 0.3, E + 0.1, -4.6)), (0, 0, -1), (1, 0, 0), lit=True)
     for x in (-3.6, 3.6):
         dormer(Vector((x, E + 0.1, -7.2 + 0.3)), (-1, 0, 0), (0, 0, -1), lit=x > 0)
     # chimneys, panelled, with pots
     for (x, z, y0, y1) in ((9.4, 8.6, 15.5, 22.6), (-11.15, 9.6, 18.0, 22.4), (-9.0, -4.2, 16.0, 21.4),
-                           (2.2, -2.6, 18.0, 21.8), (-3.4, 6.4, 18.0, 21.6)):
+                           (2.2, -2.6, 18.0, 21.8), (-5.2, 4.6, 16.0, 21.6)):
         chimney(x, z, y0, y1)
 
 
@@ -428,23 +424,30 @@ def turret():
 
 
 def tower():
-    """The tower over the tower stair: a square shaft, a glazed belvedere (Gutman's observatory), and a steep
+    """The tall tower behind the porch: a square shaft, a glazed belvedere (Gutman's observatory), and a steep
     concave mansard with lucarnes, iron cresting, a needle spire and a flag."""
-    tx0, tx1, tz0, tz1 = 8, 15, -14, -7
-    ty = 22.0
+    tx0, tx1, tz0, tz1 = TOWER
+    ty = TOWER_Y
     T = K.T
     cx, cz = (tx0 + tx1) / 2, (tz0 + tz1) / 2
     for (a, b) in (((tx0, tz1), (tx1, tz1)), ((tx1, tz1), (tx1, tz0)), ((tx1, tz0), (tx0, tz0)), ((tx0, tz0), (tx0, tz1))):
         A, B = Vector((a[0], 0, a[1])), Vector((b[0], 0, b[1]))
         r = (B - A).normalized(); n = K.outward(A, B, Vector((cx, 0, cz)))
         F = frame(A, r, n); L = (B - A).length
-        lbox(F, 'ashlar', 0, L, 11.0, ty, -T / 2, T / 2)
+        # from the sitting room's ceiling (11) where it stands over the front rooms, from the hall's (14.35) over
+        # the hall, so none of it shows inside
+        for u0, u1 in ((0, L),) if abs(A.z - B.z) < 0.01 else ((0, abs(A.z - 10.0)), (abs(A.z - 10.0), L)):
+            pa = F @ Vector((u0, 0, 0)); pb = F @ Vector((u1, 0, 0))
+            over_hall = (pa.z + pb.z) / 2 < 10.0
+            lbox(F, 'ashlar', u0, u1, 14.35 if over_hall else 11.0, ty, -T / 2, T / 2)
         Fo = F @ Matrix.Translation((0, 0, T / 2))
+        front = A.z > tz1 - 0.01 and B.z > tz1 - 0.01   # the street face; the others show only above the roof
+        ylo = EAVE if front else DECK
         for u in (0.25, L - 0.25):  # corner pilasters
-            lbox(Fo, 'ashlar', u - 0.3, u + 0.3, EAVE, ty - 0.3, 0, 0.14)
-        lbox(Fo, TRIM, -0.1, L + 0.1, EAVE + 0.0, EAVE + 0.25, 0, 0.2)
+            lbox(Fo, 'ashlar', u - 0.3, u + 0.3, ylo, ty - 0.3, 0, 0.14)
+        if front: lbox(Fo, TRIM, -0.1, L + 0.1, EAVE + 0.0, EAVE + 0.25, 0, 0.2)
         lbox(Fo, TRIM, 0, L, 16.6, 16.8, 0, 0.14)
-        for v, h, lit in ((12.6, 3.0, False), (17.3, 3.4, True)):
+        for v, h, lit in (((13.0, 2.8, False),) if front else ()) + ((17.3, 3.4, True),):
             K.lancet(Fo, L / 2 - 0.6, v, 0.8, h, lit=lit)
             K.lancet(Fo, L / 2 + 0.6, v, 0.8, h)
             pair_hood(Fo, L / 2, v + h, w=0.8)
@@ -532,6 +535,8 @@ def porch():
             K.pinnacle(x, y, z, h=2.0, r=0.26)
         else:
             cyl(TRIM, (x, y, z), 0.9, 0.2, seg=4)
+    for sx in (-1, 1):  # the door's clustered colonettes, so nobody walks into them
+        K.collide(min(sx * 1.25, sx * 2.0), 0, za - 0.05, max(sx * 1.25, sx * 2.0), 3.6, za + 0.55)
     K.LAMPS.append([0, 4.2, (za + zb) / 2])
     sphere('lamp_glass', (0, 4.3, (za + zb) / 2), 0.18, 10)
     tube('iron', [(0, top - 0.05, (za + zb) / 2), (0, 4.45, (za + zb) / 2)], 0.02)
@@ -539,7 +544,7 @@ def porch():
 
 
 def conservatory():
-    """The glass conservatory at the east end: a stone base, glazed walls, pointed glass barrel roofs crossing
+    """The glass conservatory at the west end (+x): a stone base, glazed walls, pointed glass barrel roofs crossing
     under a ribbed dome with a lantern and spire."""
     x0, x1, z0, z1 = CONS
     xc, zc = (x0 + x1) / 2, (z0 + z1) / 2

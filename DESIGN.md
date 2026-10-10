@@ -276,9 +276,8 @@ the traps we hit are in `docs/SETUP.md`.
 - Units are metres, Y-up; set scripts model directly in game coordinates.
 - **Characters** use MPFB's `game_engine` rig (53 bones) with clips `Idle`,
   `Walk`, `Talk` and `LieBack`, re-rested with the arms down. Built so far:
-  Holmes, Watson, Polhaus, Kelly, Archer (1.9–2.5 MB each).
-  **Over budget**: 38–47k triangles each against the 12k target. Next step:
-  MPFB proxy meshes or decimation, and dropping hidden body faces.
+  The whole cast, 1.0–1.4 MB each, about 10–15k triangles (from 38–62k): the skin under the clothes is
+  deleted and everything but the face decimated. The Walk is IK-planted and carries its ground speed.
 - **Sets**: Burritt Alley 53k triangles, 1.5 MB; the Hopkins Institute and its
   street 112k triangles, 3.5 MB, plus `hopkins.json` (colliders, rooms, lamps,
   interactions, ground levels).
@@ -296,7 +295,7 @@ the traps we hit are in `docs/SETUP.md`.
 3. ✅ Realistic cast (MPFB) for Chapter I, and the modelled alley set.
 4. ✅ The Mark Hopkins Institute as a walkable preview, with the night city.
 5. Next:
-   - characters under budget;
+   - characters near budget ✅ (10–15k triangles); Holmes and Polhaus still a little over;
    - motion-captured walks (the CMU library);
    - softer coat cloth;
    - an audio pass.
