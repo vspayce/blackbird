@@ -71,6 +71,7 @@ export class HUD {
     this.sayT = 2.5 + text.length * 0.045;
   }
   hideSay() { this.sayEl.classList.add('hidden'); this.sayT = 0; }
+  clearToasts() { this.toasts.replaceChildren(); }
 
   update(dt) {
     if (this.sayT > 0 && (this.sayT -= dt) <= 0) this.hideSay();

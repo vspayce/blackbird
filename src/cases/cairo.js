@@ -17,7 +17,7 @@ export const CHAPTER = {
   intro: [
     'San Francisco. The morning after Miles Archer died.',
     'Holmes has been with the police half the night, and Watson is grey with tiredness.',
-    'At the Palace Hotel the bell captain stops them. A gentleman has been shown up to their rooms. He would not give his name, but he left a card.',
+    'At the Palace Hotel the bell captain stops them. A gentleman has been shown up to their rooms. He would not wait in the lobby, and he sent up his card.',
     ['Holmes', 'A card, Watson, and a gentleman with no name. Let us go up quietly.'],
   ],
   summary: 'Miles Archer was shot in Burritt Alley last night. Holmes suspects his client, "Miss Wonderly". This morning someone has searched Holmes\'s rooms at the Palace Hotel.',
@@ -43,7 +43,7 @@ export const CLUES = {
 export const DEDUCTIONS = {
   believesHolmes: { from: ['searched', 'offer'], title: 'He thinks I have the bird', text: 'He searched my rooms for something a foot high, then offered to buy it. He believes Archer found the bird, and that it came to me.', key: true },
   rival: { from: ['offer', 'fatman'], title: 'Cairo hunts it against another', text: '"On behalf of its rightful owner", he says, and goes white at the thought of a fat man. There are two parties after this bird, and they are not friends.', key: true },
-  wonderlyKnown: { from: ['hongkong', 'wonderly'], title: 'Cairo knew Miss Wonderly', text: 'A lady from Hong Kong who left him at Honolulu, and a lady who came to Archer two days ago with a story about a sister. The same lady.', key: true },
+  wonderlyKnown: { from: ['hongkong', 'wonderly'], title: 'Cairo knew Miss Wonderly', text: 'A lady from Hong Kong who left him at Honolulu, and a lady who came to Archer yesterday with a story about a sister. The same lady.', key: true },
   traveller: { from: ['tan', 'clipping'], title: 'Lately from Hong Kong', text: 'A tan to the cuff and the arrivals from Hong Kong in his pocket: he came by sea, this week.' },
   amateur: { from: ['holster', 'rings'], title: 'Not a man of violence', text: 'Soft hands and a new holster. He bought the pistol for this errand and is more afraid of it than I am.' },
   border: { from: ['pockets', 'profile'], title: 'A man of three countries', text: 'Three passports, a dealer\'s eye and a sailor\'s tan. Cairo goes wherever the bird goes.' },
@@ -198,14 +198,14 @@ export const CONCLUSION = {
   question: 'Why did Cairo search your rooms?',
   answers: [
     { a: 'To rob a famous detective', right: false, reply: 'He left my watch on the dresser and my money in the drawer. No.' },
-    { a: 'Gutman sent him', right: false, reply: 'Cairo goes white at the thought of a fat man. Nobody sent him; he is running a race.' },
+    { a: 'The fat man sent him', right: false, reply: 'Cairo goes white at the thought of a fat man. Nobody sent him; he is running a race.' },
     { a: 'To find Miss Wonderly\'s sister', right: false, reply: 'There is no sister, Watson. There never was.' },
     { a: 'He thinks Miss Wonderly hired Archer to find the bird, and that I have it now', right: true, reply: 'She left him at Honolulu with the bird, he thinks, and came to Archer. Archer is dead, I was in the room, so I must have it.' },
   ],
   epilogue: [
     ['Watson', 'And now he knows you have not got it.'],
     ['Holmes', 'He knows I say so. He will go to the Geary Theatre tonight and tell someone, and I should very much like to know who sits in the next seat.'],
-    ['Holmes', 'But first, Watson, Miss Wonderly. I think she is staying at the St. Mark, and I think she is not called Wonderly at all.'],
+    ['Holmes', 'But first, Watson, Miss Wonderly. Her card in Archer\'s pocket said the St. Mark Hotel, and I think she is not called Wonderly at all.'],
   ],
 };
 

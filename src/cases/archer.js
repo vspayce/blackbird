@@ -10,7 +10,7 @@ export const CHAPTER = {
   next: 'Chapter II · The Levantine',
   world: 'alley',
   ride: { to: 'Bush Street', place: 'Burritt Alley', time: 'Half past two in the morning' },
-  opening: 'Two in the morning, and Polhaus already here. Let us see what the fog has left us, Watson.',
+  opening: 'Half past two, and Polhaus already here. Let us see what the fog has left us, Watson.',
   summary: 'Miss Wonderly hired Archer yesterday to follow a man named Floyd Thursby. Holmes was in the room and said nothing. At two this morning Archer was shot dead in Burritt Alley.',
   intro: [
     'San Francisco. November, 1895.',
@@ -33,7 +33,7 @@ export const CLUES = {
   fence: { kind: 'clue', title: 'Broken fence', text: 'Three boards snapped outward at the dead end. Archer went back against them when he fell. His back was to the fence and the drop.' },
   heel: { kind: 'clue', title: 'Narrow heel prints', text: 'In the damp between the cobbles: a narrow, pointed heel. A lady\'s boot, small, and standing an arm\'s length from where Archer fell.' },
   scent: { kind: 'clue', title: 'Lavender water', text: 'Under the alley lamp the fog still holds it. Lavender water. Someone stood here and waited.' },
-  webley: { kind: 'clue', title: 'An English revolver', text: 'In the weeds past the fence: a Webley-Fosbery, one chamber fired. Rare in San Francisco. Thrown, not dropped. It was meant to be found.' },
+  webley: { kind: 'clue', title: 'An English revolver', text: 'In the weeds past the fence: a Webley, an English army revolver, one chamber fired. Rare in San Francisco. Thrown, not dropped. It was meant to be found.' },
   job: { kind: 'testimony', who: 'watson', title: 'Watson: the job', text: 'Miss Wonderly hired Archer to follow Floyd Thursby, who she said had run off with her younger sister. Archer took the night watch himself.' },
   hack: { kind: 'testimony', who: 'polhaus', title: 'Polhaus: a hack', text: 'Patrolman Kelly saw a hired hack pull away from Bush Street just before he found the body. He did not get the number.' },
   thursby: { kind: 'testimony', who: 'kelly', title: 'Kelly: Thursby', text: 'Kelly knows Thursby by sight: an English gunman who drinks at the Belvedere and has boasted of his "Webley". Kelly saw him at the bar at one o\'clock, very drunk.' },
@@ -88,9 +88,9 @@ export const PEOPLE = {
 // People who are not in the alley but belong in the notebook. needs: a clue
 // or deduction that brings them into the case.
 export const ABSENT = {
-  archer: { name: 'Miles Archer', role: 'The victim', note: 'Former Pinkerton man, partner in Spade & Archer. Brave, vain, and fond of a pretty client.' },
+  archer: { name: 'Miles Archer', role: 'The victim', note: 'Former Pinkerton man, a private detective on his own account. Brave, vain, and fond of a pretty client.' },
   wonderly: { name: 'Miss Wonderly', role: 'The client', note: 'Hired Archer yesterday. Blue gloves, lavender water, a sister who may not exist.', needs: 'wonderly' },
-  thursby: { name: 'Floyd Thursby', role: 'The man Archer was following', note: 'English. Drinks at the Belvedere. Owns a Webley-Fosbery, and tells everyone so.', needs: 'job' },
+  thursby: { name: 'Floyd Thursby', role: 'The man Archer was following', note: 'English. Drinks at the Belvedere. Carries an English Webley, and tells everyone so.', needs: 'job' },
 };
 
 // Places to examine. focus: only visible while Focus is on (until found).
@@ -141,7 +141,7 @@ export const TALK = {
     ],
   },
   watson: {
-    hello: [['Watson', 'Poor Archer. Only this afternoon he was boasting of what an easy job Miss Wonderly had handed him.']],
+    hello: [['Watson', 'Poor Archer. Only yesterday afternoon he was boasting of what an easy job Miss Wonderly had handed him.']],
     topics: [
       { q: 'Remind me of the job, Watson.', a: [['Watson', 'She wanted a man named Floyd Thursby followed. Claimed he\'d run off with her younger sister. Archer took the evening watch himself.']], gives: 'job' },
       { q: 'What did you make of Miss Wonderly?', a: [['Watson', 'A charming young woman. Rather nervous.'], ['Holmes', 'Charming, yes. Nervous, no. She was rehearsed, Watson. Every tremble came in on its cue.']] },
@@ -179,7 +179,7 @@ export const CONCLUSION = {
     ['Watson', 'Then we must tell Polhaus at once!'],
     ['Holmes', 'And tell him what? A scent and a heel print. She would be on the morning boat to Hong Kong before the ink was dry.'],
     ['Holmes', 'No, Watson. She thinks she has made fools of us. Let her keep thinking it. Whatever she killed for is still in this city, and she will lead us to it.'],
-    ['Holmes', 'Come. I believe there is a gentleman from the Levant waiting at the Palace Hotel, and he smells of gardenias.'],
+    ['Holmes', 'Come, Watson. Back to the Palace for an hour\'s sleep. Somebody else wants what Archer was paid to find, and I fancy they will come to us.'],
   ],
 };
 

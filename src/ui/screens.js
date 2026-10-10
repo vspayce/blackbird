@@ -132,7 +132,7 @@ export function cards(lines, done, cls = 'intro') {
 
 export function accuse({ onAnswer, onBack }) {
   const s = show(`<div class="accuse"><h2>${CONCLUSION.question}</h2><div class="btns"></div>
-    <p class="reply"></p><button class="back">Back to the alley</button></div>`);
+    <p class="reply"></p><button class="back">Back</button></div>`);
   const btns = s.querySelector('.btns');
   const reply = s.querySelector('.reply');
   for (const ans of CONCLUSION.answers) {

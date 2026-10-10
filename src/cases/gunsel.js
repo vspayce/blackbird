@@ -27,7 +27,7 @@ export const CHAPTER = {
 };
 
 export const CLUES = {
-  paloma: { kind: 'memory', title: 'La Paloma', text: 'From Hong Kong, due at the Embarcadero tomorrow. Gutman drugged me to keep me away until then.' },
+  paloma: { kind: 'memory', title: 'La Paloma', text: 'From Hong Kong, due at the Pacific Mail wharf tomorrow. Gutman drugged me to keep me away until then.' },
   reflection: { kind: 'clue', title: 'In the jeweller\'s glass', text: 'Among the rings and watches, a reflection: a cap, an overcoat too good for its wearer, twenty paces back on the far side. When I stop, he stops.' },
   sentinel: { kind: 'testimony', who: 'kelly', title: 'Kelly: since dawn', text: 'The boy stood across from the Palace from six this morning, and asked the bell boy whether a lady had called on Mr. Holmes.' },
   dollar: { kind: 'testimony', who: 'kelly', title: 'Kelly: a dollar', text: 'The boy paid Kelly a dollar to say which way Holmes went.' },

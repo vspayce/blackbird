@@ -429,3 +429,34 @@ body[data-mode=portrait] #btn-act, body[data-mode=portrait] #desk-hint, body[dat
 @keyframes presentPulse { 50% { box-shadow: 0 0 12px rgba(240,212,138,0.45); } }
 body.pad #dialogue .inline .focus::after { content: ' (X)'; opacity: 0.6; }
 body.pad #dialogue .inline .present::after { content: ' (Y)'; opacity: 0.7; }
+/* the end card on a landscape phone: stars beside a two-column table, so the buttons stay on screen */
+@media (max-height: 500px) {
+  .title.end h1 { font-size: 30px; margin: 2px 0; }
+  .title.end .pre, .title.end .sub { margin: 2px 0; }
+  .title.end .rating { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 4px auto; }
+  .title.end .rating .stars { font-size: 28px; letter-spacing: 3px; }
+  .title.end .rating table { margin: 0; font-size: 13px; display: grid; grid-template-columns: auto auto; column-gap: 14px; }
+  .title.end .rating tr { display: flex; justify-content: space-between; gap: 8px; }
+  .title.end .rating td { padding: 1px 4px; }
+  .title.end .btns { margin-top: 6px; }
+}
+/* phones: the tail panel sits under the top-right buttons, clear of the objective */
+@media (max-width: 1000px) {
+  #tail { top: 60px; left: auto; right: 12px; transform: none; min-width: 190px; }
+}
+/* the portrait: Holmes's aside goes to the top, so the markers on the hands stay clear */
+body[data-mode=portrait] #say { top: 64px; bottom: auto; }
+body[data-mode=portrait] #toasts { top: auto; bottom: 12px; }
+/* the fight planner on a landscape phone: one compact strip at the bottom, the two men visible above it */
+@media (max-height: 500px) {
+  #screen.see-through { background: linear-gradient(transparent 38%, rgba(8,10,14,0.94) 58%); }
+  .fight h2 { font-size: 20px; margin: 0 0 2px; }
+  .fight .prompt, .fight > p:not(.reply):not(.pre) { display: none; }
+  .fight .moves { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; }
+  .fight .moves button { flex: none; min-height: 34px; padding: 4px 10px; font-size: 13px; }
+}
+#loading .loadfail { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; text-align: center;
+  background: rgba(8,10,14,0.92); border-top: 2px solid var(--blood); padding: 18px 26px; color: var(--paper); font-family: var(--serif); }
+#loading .loadfail b { display: block; font-family: var(--caps); font-weight: normal; font-size: 20px; margin-bottom: 4px; }
+#loading .loadfail span { display: block; font-style: italic; margin-bottom: 12px; }
+#loading .loadfail button { pointer-events: auto; }

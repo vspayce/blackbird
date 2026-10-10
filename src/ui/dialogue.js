@@ -71,7 +71,8 @@ export class Dialogue {
       this.inline.appendChild(b);
     };
     mk(focus ? '◉ Focus' : '○ Focus', 'focus' + (focus ? ' on' : ''), () => { h.toggleFocus?.(); this.lineTools(); });
-    if (o?.present && !(('p:' + o.present.id) in h.state.calls)) mk('Present evidence', 'present', () => this.present(o.present));
+    const p = o?.present, open = p && (!(('p:' + p.id) in h.state.calls) || (p.gives && !h.state.has(p.gives)));
+    if (open) mk('Present evidence', 'present', () => this.present(p));
   }
 
   // cut in mid-speech with a fact
@@ -84,7 +85,7 @@ export class Dialogue {
     this.el.classList.add('judging'); this.judging = true;
     const done = right => {
       this.el.classList.remove('judging'); this.judging = false;
-      state.calls['p:' + p.id] = right; state.save();
+      if (!(('p:' + p.id) in state.calls)) { state.calls['p:' + p.id] = right; state.save(); }
       this.hooks.onCall(right);
       if (right) this.play(p.right, () => { if (p.gives) this.hooks.onGive(p.gives); then?.(); });
       else this.play([...p.wrong, ...rest], then);  // the lie goes on
@@ -138,17 +139,19 @@ export class Dialogue {
       if (t.before && state.events.includes(t.before)) return;  // only until it has
       const key = this.person + i;
       const called = t.challenge && key in state.calls;
-      const done = this.asked.has(key) || (t.gives && state.has(t.gives)) || called;
+      // a wrong call costs the rating, never the case: while its testimony is missing it can be put again
+      const retry = t.challenge && called && t.challenge.gives && !state.has(t.challenge.gives);
+      const done = !retry && (this.asked.has(key) || (t.gives && state.has(t.gives)) || called);
       const b = this.button(t.q, done ? 'asked' : '', () => {
         this.asked.add(key);
         this.play([['Holmes', t.q], ...t.a], () => {
           if (t.event) { const h = this.hooks; this.close(); h.onEvent?.(t.event); return; }  // the scene breaks off
           if (t.gives) this.hooks.onGive(t.gives);
-          if (t.challenge && !(key in state.calls)) this.challenge(key, t.challenge);
+          if (t.challenge && (!(key in state.calls) || retry)) this.challenge(key, t.challenge);
           else this.menu();
         });
       });
-      if (t.challenge) b.classList.add(...(called ? ['called', state.calls[key] ? 'right' : 'wrong'] : ['contest']));
+      if (t.challenge) b.classList.add(...(called && !retry ? ['called', state.calls[key] ? 'right' : 'wrong'] : ['contest']));
     });
     this.button('That will be all.', 'bye', () => this.close());
   }
@@ -180,8 +183,8 @@ export class Dialogue {
 
   resolve(key, c, right) {
     this.el.classList.remove('judging');
-    this.hooks.state.calls[key] = right;
-    this.hooks.state.save();
+    const st = this.hooks.state;
+    if (!(key in st.calls)) { st.calls[key] = right; st.save(); }  // the first call is the one that counts
     this.hooks.onCall(right);
     this.play(right ? c.right : c.wrong, () => {
       if (right && c.gives) this.hooks.onGive(c.gives);

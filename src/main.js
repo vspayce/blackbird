@@ -22,7 +22,7 @@ import { saves } from './game/saves.js';
 import { showRide, rideNext } from './ui/ride.js';
 import { NEXT_PLAYABLE, chapterNames } from './cases/current.js';
 
-const HOLMES_LOOK = { model: 'holmes', coat: '#4a4740', trousers: '#2e2c2a', hat: 'deerstalker', hatColor: '#6b6250', cape: true, longCoat: true, hair: '#1d1712', height: 1.86 };
+const HOLMES_LOOK = { model: 'holmes', coat: '#141414', trousers: '#121212', hat: 'tophat', hatColor: '#0a0a0a', longCoat: true, hair: '#0d0b0a', height: 1.86 };
 const WALK = 2.0;           // m/s at full stick: a brisk walk
 const R = 0.3;              // body radius for collisions
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _ray = new THREE.Ray();
@@ -34,6 +34,7 @@ const params = new URLSearchParams(location.search);
 const PREVIEW = params.get('scene') === 'hopkins';
 const WORLD = PREVIEW ? 'hopkins' : CHAPTER.world;
 const SKIP = params.has('skip');
+const GO = params.has('go');  // arrived from the last chapter's end card: straight into this chapter's intro
 const LOAD = params.get('load');  // a save to resume on arrival: a slot id, or 'pending' (a code, in sessionStorage)
 
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
@@ -172,13 +173,36 @@ class Game {
     on('btn-back', () => this.leaveCloseup());
     on('btn-menu', () => this.openMenu());
     addEventListener('keydown', e => {
-      if (e.repeat) return;
-      if (e.code === 'KeyF') this.toggleFocus();
-      else if (e.code === 'KeyE' || e.code === 'Space') { if (this.mode === 'explore') this.interact(); else if (this.mode === 'talk') this.dialogue.next(); }
-      else if (e.code === 'KeyB' || e.code === 'Tab') { e.preventDefault(); this.openBook(); }
-      else if (e.code === 'KeyM') this.openPalace();
-      else if (e.code === 'Escape' && this.mode === 'closeup') this.leaveCloseup();
-      else if (e.code === 'Escape' && this.mode === 'explore') this.openMenu();
+      if (e.repeat || e.target.closest?.('input, textarea')) return;
+      const $ = id => document.getElementById(id);
+      const click = el => el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const m = this.mode, k = e.code;
+      const back = k === 'Escape' || k === 'Backspace';
+      if (m === 'talk') {  // number keys pick a choice, Esc leaves, Space/E/Enter advance a line
+        const ch = [...this.dialogue.choices.children];
+        const n = /^Digit([1-9])$/.exec(k)?.[1];
+        if (n && ch[n - 1]) return click(ch[n - 1]);
+        if (back) return click(this.dialogue.choices.querySelector('.bye'));
+        if (k === 'KeyF') return this.toggleFocus();
+        if (k === 'KeyP') return click(this.dialogue.inline.querySelector('.present'));
+        if ((k === 'Space' || k === 'KeyE' || k === 'Enter') && !ch.length) { e.preventDefault(); return this.dialogue.next(); }
+        return;
+      }
+      if (m === 'book' && (back || k === 'KeyB' || k === 'Tab')) { e.preventDefault(); return click($('book').querySelector('.close')); }
+      if (m === 'palace' && (back || k === 'KeyM')) return click($('palace').querySelector('.close'));
+      if (m === 'menu' && back) return click($('screen').querySelector('[data-a=resume], [data-a=back]'));
+      if (['intro', 'title', 'accuse'].includes(m) && (k === 'Space' || k === 'Enter' || k === 'KeyE' || k === 'ArrowRight')) {
+        e.preventDefault();
+        const primary = $('screen').querySelector('button.primary');
+        return m === 'intro' || !primary ? click($('screen')) : click(primary);
+      }
+      if (m === 'accuse' && back) return click($('screen').querySelector('.back'));
+      if (k === 'KeyF') this.toggleFocus();
+      else if (k === 'KeyE' || k === 'Space') { if (m === 'explore') this.interact(); }
+      else if (k === 'KeyB' || k === 'Tab') { e.preventDefault(); this.openBook(); }
+      else if (k === 'KeyM') this.openPalace();
+      else if (k === 'Escape' && m === 'closeup') this.leaveCloseup();
+      else if (k === 'Escape' && m === 'explore') this.openMenu();
     });
   }
 
@@ -203,6 +227,11 @@ class Game {
       history.replaceState(null, '', location.pathname + (chapterNumber > 1 ? `?chapter=${chapterNumber}` : ''));
       if (data) return this.applySave(data);
     }
+    if (GO) {
+      history.replaceState(null, '', location.pathname + `?chapter=${chapterNumber}`);
+      this.state.reset(); this.state.save();
+      return this.boot(true);
+    }
     if (PREVIEW || SKIP) {  // arrived from the Scenes menu: straight in
       this.state.load();
       return this.boot(false);
@@ -210,7 +239,11 @@ class Game {
     const latest = saves.latest();
     titleScreen({
       latest,
-      onContinue: () => this.applySave(latest),
+      onContinue: () => {
+        // a finished chapter continues with the next one, not the solved scene
+        const next = latest.state?.solved && NEXT_PLAYABLE[latest.chapter];
+        if (next) { rideNext(); location.href = `./?chapter=${next}&go=1`; } else this.applySave(latest);
+      },
       onLoad: () => this.loadMenu(() => this.title()),
       scenes: [
         ['Chapter I · Burritt Alley', './'],
@@ -323,7 +356,8 @@ class Game {
       const s = this.world.data.spawn;
       h.position.fromArray(s.pos);
       h.rotation.y = s.yaw;
-      w.position.set(s.pos[0] - 1.1, s.pos[1], s.pos[2] - 0.7);
+      const wo = s.watson ?? [-1.1, 0, -0.7];  // where Watson starts, from Holmes: the set says, so he isn't in the shot
+      w.position.set(s.pos[0] + wo[0], s.pos[1] + wo[1], s.pos[2] + wo[2]);
       this.yaw = s.yaw - Math.PI; this.pitch = WORLD === 'hopkins' ? -0.12 : 0.2;  // (up at the house over the wall)
     } else {
       h.position.set(CHAPTER.start.x, 0, CHAPTER.start.z);
@@ -400,6 +434,14 @@ class Game {
     return !(s.focus && !found && this.focus < 0.3);
   }
 
+  // a spot with nothing left to give: its clue (or every clue) found, or its event done and nothing to say
+  spent(s) {
+    const st = this.state;
+    if (s.clues) return s.clues.every(c => st.has(c));
+    if (s.clue) return st.has(s.clue);
+    return !!s.event && st.events.includes(s.event) && !s.say;
+  }
+
   // on Holmes's floor: within reach of a marker at height y
   sameFloor(y, p = this.holmes.object.position) { return Math.abs(y - p.y) < 3; }
 
@@ -411,9 +453,12 @@ class Game {
       if (this.sameFloor(s.pos[1], p) && d < s.r && d / s.r < bestScore) { best = { inter: s }; bestScore = d / s.r; }
     }
     for (const s of this.spots) {
-      if (!this.spotLive(s) || !this.sameFloor(s.pos[1], p)) continue;
+      if (!this.spotLive(s) || this.spent(s) || !this.sameFloor(s.pos[1], p)) continue;
       const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
-      if (d < s.r && d / s.r < bestScore) { best = { spot: s }; bestScore = d / s.r; }
+      // a clue still to find beats everything else in reach, and a plain remark comes last, so the act button
+      // never hides a clue behind a fence or a body
+      const score = d / s.r - (s.clue || s.clues ? 1 : 0) + (s.clue || s.clues || s.event || s.closeup ? 0 : 0.6);
+      if (d < s.r && score < bestScore) { best = { spot: s }; bestScore = score; }
     }
     for (const person of this.present()) {
       const o = person.fig.object.position;
@@ -488,7 +533,8 @@ class Game {
     const person = this.people[id].fig.object, h = this.holmes.object.position;
     person.rotation.y = Math.atan2(h.x - person.position.x, h.z - person.position.z);
     this.setMode('portrait');
-    this.fixCamera(person, 1.25, 0.28, 1.58, 1.32);
+    this.fixCamera(person, 1.9, 0.3, 1.5, 1.12);  // head to hands, so every reading sits clear of the panels
+    this.hud.clearToasts();
     this.portrait = { id, def, person };
     this.hud.say('Hold. Look at him, Watson, before he says a word.');
   }
@@ -498,6 +544,8 @@ class Game {
     const P = this.portrait;
     if (!P.def.spots.every(s => this.state.has(s.clue)) || P.sheet) return;
     P.sheet = true;
+    setTimeout(() => this.hud.clearToasts(), 900);
+    this.hud.hideSay();
     setTimeout(() => profileSheet({
       who: PEOPLE[P.id].name, lines: P.def.lines,
       onWrong: () => { this.state.misses++; this.state.save(); audio.wrong(); },
@@ -524,9 +572,13 @@ class Game {
     // a side-on two-shot from the room's side: both men, and the gun between them
     const c = foe.fig.object.position, mid = h.position.clone().lerp(c, 0.5);
     const dir = c.clone().sub(h.position).setY(0).normalize(), perp = new THREE.Vector3(dir.z, 0, -dir.x);
-    if (perp.dot(mid.clone().negate()) < 0) perp.negate();  // toward the middle of the room, away from the walls
+    // stand back on whichever side has more room (never inside a wall or behind a sofa), and as far as it allows
+    const eye = mid.clone().add(new THREE.Vector3(0, 1.45, 0));
+    const room = v => this.camCol.limit(eye, v.clone().addScaledVector(dir, -0.2).normalize(), 3.6);
+    const back = [perp, perp.clone().negate()].map(v => [v, room(v)]).sort((a, b) => b[1] - a[1])[0];
+    const away = Math.max(1.4, back[1]);
     this.fixedCam = {
-      pos: mid.clone().addScaledVector(perp, 3.0).addScaledVector(dir, -0.6).add(new THREE.Vector3(0, 1.55, 0)),
+      pos: eye.clone().addScaledVector(back[0].clone().addScaledVector(dir, -0.2).normalize(), away).add(new THREE.Vector3(0, 0.1, 0)),
       look: mid.clone().add(new THREE.Vector3(0, 1.3, 0)),
       t: 0, from: this.camera.position.clone(), lookFrom: this.camLook?.clone() ?? mid.clone(),
     };
@@ -652,7 +704,7 @@ class Game {
           const next = NEXT_PLAYABLE[chapterNumber];
           endCard({
             rating: this.state.rating(), onTitle: () => this.title(),
-            next: next && { label: chapterNames[next], go: () => { rideNext(); location.href = `./?chapter=${next}`; } },
+            next: next && { label: chapterNames[next], go: () => { rideNext(); location.href = `./?chapter=${next}&go=1`; } },
           });
         }, 'intro epilogue');
       },
@@ -731,8 +783,9 @@ class Game {
       w.fig.animate(dt, 0, t);
       return;
     }
-    // left behind on another floor (he doesn't take stairs on his own): catch up out of sight
-    if (Math.abs(o.position.y - h.position.y) > 1.5 && Math.hypot(o.position.x - h.position.x, o.position.z - h.position.z) > 2.5) {
+    // left behind on another floor (he doesn't take stairs on his own), or far behind: catch up out of sight
+    const apart = Math.hypot(o.position.x - h.position.x, o.position.z - h.position.z);
+    if ((Math.abs(o.position.y - h.position.y) > 1.5 && apart > 2.5) || apart > 25) {
       o.position.set(tx, h.position.y, tz);
     }
     const dx = tx - o.position.x, dz = tz - o.position.z, d = Math.hypot(dx, dz);
@@ -771,9 +824,13 @@ class Game {
       return;
     }
     if (this.fixedCam && ['portrait', 'fight', 'intro'].includes(this.mode) || this.mode === 'closeup') {
-      // a set-up shot: give back anyone the follow camera hid for being in the lens
+      // a set-up shot: hide whoever stands right by the lens (Holmes at the camera's shoulder), show the rest
+      const cp0 = this.fixedCam && this.mode !== 'closeup' ? this.fixedCam.pos : null;
       for (const p of [this.holmes, ...Object.values(this.people)]) {
-        if (p.camHidden) { p.camHidden = false; if (p !== this.holmes || this.mode !== 'closeup') (p.fig ?? p).object.visible = true; }
+        const o = (p.fig ?? p).object;
+        const near = cp0 && Math.hypot(o.position.x - cp0.x, o.position.z - cp0.z) < 0.9;
+        if (near && o.visible && !p.camHidden) { p.camHidden = true; o.visible = false; }
+        else if (!near && p.camHidden) { p.camHidden = false; if (p !== this.holmes || this.mode !== 'closeup') o.visible = true; }
       }
     }
     if (this.fixedCam && ['portrait', 'fight', 'intro'].includes(this.mode)) {
@@ -866,7 +923,7 @@ class Game {
         const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
         if (s.focus && !found) {
           if (f < 0.3 || d > 9) continue;
-        } else if (found || d > 5 || s.closeup) continue;
+        } else if (found || this.spent(s) || d > 5 || s.closeup) continue;
         const sc = this.project(...s.pos);
         if (!sc) continue;
         hud.label('spot:' + s.id, sc[0], sc[1], s.label, s.focus ? 'mark focus' : 'mark', () => {
@@ -1011,4 +1068,14 @@ const models = ['holmes', ...new Set(Object.values(PREVIEW ? { w: PEOPLE.watson 
 if (CHAPTER.id === 'archer' && !PREVIEW) models.push('archer');
 const ride = showRide(PREVIEW ? { to: 'Nob Hill', place: 'The Mark Hopkins Institute of Art', time: 'An evening walk' } : CHAPTER.ride);
 const assets = [loadModels(models), { hopkins: loadHopkins, kearny: loadKearny, palace: () => loadRoom('palace'), stmark: () => loadRoom('stmark') }[WORLD]?.() ?? loadSet()];
-Promise.all(assets).then(() => { window.game = new Game(); return ride(); });
+Promise.all(assets).then(() => { window.game = new Game(); return ride(); }).catch(err => {
+  // a model or its data would not load (a dropped connection, usually): say so, and offer to try again
+  console.error(err);
+  const el = document.getElementById('loading');
+  if (!el) return;
+  const box = document.createElement('div');
+  box.className = 'loadfail';
+  box.innerHTML = '<b>The cab has lost its way in the fog.</b><span>The scene could not be loaded.</span><button>Try again</button>';
+  box.querySelector('button').onclick = () => location.reload();
+  el.appendChild(box);
+});
