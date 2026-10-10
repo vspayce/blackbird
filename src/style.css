@@ -460,3 +460,9 @@ body[data-mode=portrait] #toasts { top: auto; bottom: 12px; }
 #loading .loadfail b { display: block; font-family: var(--caps); font-weight: normal; font-size: 20px; margin-bottom: 4px; }
 #loading .loadfail span { display: block; font-style: italic; margin-bottom: 12px; }
 #loading .loadfail button { pointer-events: auto; }
+/* download progress on the cab ride: a thin gaslight bar, faded in once it is clearly taking a while */
+#loading .progress { position: absolute; right: calc(6vw + var(--sr, 0px)); bottom: 9vh; width: min(260px, 40vw); opacity: 0; transition: opacity .6s 1.2s; text-align: right; }
+#loading .progress.on { opacity: 1; }
+#loading .progress span { display: block; height: 3px; background: rgba(233,220,184,0.15); }
+#loading .progress em { display: block; height: 100%; width: 0; background: var(--gold); box-shadow: 0 0 8px rgba(201,160,74,0.6); transition: width .3s; }
+#loading .progress small { display: block; margin-top: 6px; font-family: var(--caps); letter-spacing: 2px; font-size: 12px; color: var(--paper); opacity: 0.8; }

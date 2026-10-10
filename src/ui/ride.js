@@ -89,6 +89,16 @@ function cabSVG() {
 </svg>`;
 }
 
+// how much of the scene has come down the wire (bytes); shown once it is plainly taking a while
+export function rideProgress(loaded, total) {
+  const el = document.querySelector('#loading .progress');
+  if (!el || !total) return;
+  el.classList.add('on');
+  el.querySelector('em').style.width = `${Math.min(100, loaded / total * 100).toFixed(1)}%`;
+  const mb = n => (n / 1048576).toFixed(1);
+  el.querySelector('small').textContent = loaded >= total ? 'Arriving…' : `${mb(loaded)} of ${mb(total)} MB`;
+}
+
 // Show the ride. dest: { to, place, time }. Returns finish(): call when the scene is ready; it resolves once
 // the ride has been seen long enough and has faded out.
 export function showRide(dest) {
@@ -96,7 +106,8 @@ export function showRide(dest) {
   const cab = arrivedByCab();
   el.classList.add('ride');
   el.innerHTML = `${cabSVG()}<div class="dest"><small>${cab ? 'By cab' : 'San Francisco, 1895'}</small>
-      <b></b><span class="place"></span><i></i></div>`;
+      <b></b><span class="place"></span><i></i></div>
+      <div class="progress"><span><em></em></span><small></small></div>`;
   el.querySelector('b').textContent = dest?.to ?? '';
   el.querySelector('.place').textContent = dest?.place ?? '';
   el.querySelector('i').textContent = dest?.time ?? '';

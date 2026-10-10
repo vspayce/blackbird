@@ -276,3 +276,10 @@ send touch events through a CDP session.
   visible credit if the game is published.
 - **Likeness:** Holmes follows Jeremy Brett's costume and the type of face,
   not a portrait of the actor.
+
+### Compressing models for download
+
+After any Blender build, run `npm run compress` (or `npm run compress -- holmes stmark` for some). It turns the
+models' textures into WebP (character skin kept at 2048 px for the faces, sets capped at 1024) and keeps Draco
+geometry, roughly halving each file. It renames and merges nothing, so the game's lookups by name still work, and
+textures already in WebP are skipped, so running it twice is harmless.

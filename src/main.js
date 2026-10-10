@@ -19,7 +19,8 @@ import { Casebook, MindPalace } from './ui/palace.js';
 import { titleScreen, cards, accuse, endCard, hideScreen, reconstruct, pauseMenu, slotPicker, codeScreen, profileSheet, fightPlanner } from './ui/screens.js';
 import { CHAPTER, CLUES, PEOPLE, SPOTS, CLOSEUP, READS, CONCLUSION, EVENTS, TAIL, PORTRAITS, FIGHTS, chapterNumber } from './cases/current.js';
 import { saves } from './game/saves.js';
-import { showRide, rideNext } from './ui/ride.js';
+import { showRide, rideNext, rideProgress } from './ui/ride.js';
+import { onLoadProgress } from './core/gltf.js';
 import { NEXT_PLAYABLE, chapterNames } from './cases/current.js';
 
 const HOLMES_LOOK = { model: 'holmes', coat: '#141414', trousers: '#121212', hat: 'tophat', hatColor: '#0a0a0a', longCoat: true, hair: '#0d0b0a', height: 1.86 };
@@ -1067,6 +1068,7 @@ class Game {
 
 const models = ['holmes', ...new Set(Object.values(PREVIEW ? { w: PEOPLE.watson } : PEOPLE).map(p => p.look.model).filter(Boolean))];
 if (CHAPTER.id === 'archer' && !PREVIEW) models.push('archer');
+onLoadProgress(rideProgress);
 const ride = showRide(PREVIEW ? { to: 'Nob Hill', place: 'The Mark Hopkins Institute of Art', time: 'An evening walk' } : CHAPTER.ride);
 const assets = [loadModels(models), { hopkins: loadHopkins, kearny: loadKearny, palace: () => loadRoom('palace'), stmark: () => loadRoom('stmark') }[WORLD]?.() ?? loadSet()];
 Promise.all(assets).then(() => { window.game = new Game(); return ride(); }).catch(err => {
