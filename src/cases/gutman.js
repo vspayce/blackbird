@@ -18,7 +18,7 @@ export const CHAPTER = {
   watsonWaits: { until: 'drugged', above: 15, line: 'Wait here, Watson. He asked for me alone, and I should like him to think he has it.' },
   opening: 'Ten o\'clock, Watson, and the Hopkins house lit up like a lantern. Somewhere inside it is the Fat Man.',
   intro: [
-    'San Francisco. December, 1895.',
+    'San Francisco. November, 1895.',
     'Two nights since Miles Archer died in Burritt Alley, and one since Floyd Thursby died in Geary Street.',
     'Since then a Levantine named Joel Cairo has offered Holmes five thousand dollars for a black statuette of a bird, and Miss Wonderly has become Miss O\'Shaughnessy, and lied four more times in a quarter of an hour.',
     'Everyone who wants the bird is afraid of one man. They call him the Fat Man. His name is Kasper Gutman.',

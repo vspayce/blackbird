@@ -246,12 +246,13 @@ class Game {
       },
       onLoad: () => this.loadMenu(() => this.title()),
       scenes: [
-        ['Chapter I · Burritt Alley', './'],
+        // go=1: a fresh start straight into the chapter's intro, not the title screen again
+        ['Chapter I · Burritt Alley', '?go=1'],
         ['Chapter I, skip the intro', '?skip=1'],
-        ['Chapter II · The Levantine', '?chapter=2'],
-        ['Chapter III · The St. Mark', '?chapter=3'],
-        ['Chapter IV · The Fat Man', '?chapter=4'],
-        ['Chapter V · The Gunsel', '?chapter=5'],
+        ['Chapter II · The Levantine', '?chapter=2&go=1'],
+        ['Chapter III · The St. Mark', '?chapter=3&go=1'],
+        ['Chapter IV · The Fat Man', '?chapter=4&go=1'],
+        ['Chapter V · The Gunsel', '?chapter=5&go=1'],
         ['The Mark Hopkins Institute (free roam)', '?scene=hopkins'],
       ],
       onNew: () => { this.state.reset(); this.state.save(); this.boot(true); },
