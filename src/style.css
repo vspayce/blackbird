@@ -466,3 +466,6 @@ body[data-mode=portrait] #toasts { top: auto; bottom: 12px; }
 #loading .progress span { display: block; height: 3px; background: rgba(233,220,184,0.15); }
 #loading .progress em { display: block; height: 100%; width: 0; background: var(--gold); box-shadow: 0 0 8px rgba(201,160,74,0.6); transition: width .3s; }
 #loading .progress small { display: block; margin-top: 6px; font-family: var(--caps); letter-spacing: 2px; font-size: 12px; color: var(--paper); opacity: 0.8; }
+/* the title shown early, over the cab ride, while the first scene loads underneath */
+body.early-title #screen { z-index: 45; background: radial-gradient(ellipse at center, rgba(13,18,24,0.55), rgba(13,18,24,0.8)); }
+body.early-title #loading .dest, body.early-title #loading .progress small { visibility: hidden; }

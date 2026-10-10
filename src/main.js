@@ -92,7 +92,9 @@ class Game {
     this.timer = new THREE.Timer();
     this.timer.connect?.(document);
     this.renderer.r.setAnimationLoop(() => this.frame());
-    this.title();
+    document.body.classList.remove('early-title');
+    if (pendingTitle) { this.setMode('title'); pendingTitle(this); }  // a choice made on the title while we loaded
+    else this.title();
   }
 
   // --- people -------------------------------------------------------------
@@ -237,27 +239,7 @@ class Game {
       this.state.load();
       return this.boot(false);
     }
-    const latest = saves.latest();
-    titleScreen({
-      latest,
-      onContinue: () => {
-        // a finished chapter continues with the next one, not the solved scene
-        const next = latest.state?.solved && NEXT_PLAYABLE[latest.chapter];
-        if (next) { rideNext(); location.href = `./?chapter=${next}&go=1`; } else this.applySave(latest);
-      },
-      onLoad: () => this.loadMenu(() => this.title()),
-      scenes: [
-        // go=1: a fresh start straight into the chapter's intro, not the title screen again
-        ['Chapter I · Burritt Alley', '?go=1'],
-        ['Chapter I, skip the intro', '?skip=1'],
-        ['Chapter II · The Levantine', '?chapter=2&go=1'],
-        ['Chapter III · The St. Mark', '?chapter=3&go=1'],
-        ['Chapter IV · The Fat Man', '?chapter=4&go=1'],
-        ['Chapter V · The Gunsel', '?chapter=5&go=1'],
-        ['The Mark Hopkins Institute (free roam)', '?scene=hopkins'],
-      ],
-      onNew: () => { this.state.reset(); this.state.save(); this.boot(true); },
-    });
+    titleScreen(titleOptions(fn => fn(this)));
   }
 
   // --- saving -------------------------------------------------------------------------------
@@ -1068,9 +1050,43 @@ class Game {
 
 const models = ['holmes', ...new Set(Object.values(PREVIEW ? { w: PEOPLE.watson } : PEOPLE).map(p => p.look.model).filter(Boolean))];
 if (CHAPTER.id === 'archer' && !PREVIEW) models.push('archer');
+// The title's choices. run(fn) does fn(game): at once, or when the scene is ready if the title went up early.
+function titleOptions(run) {
+  const latest = saves.latest();
+  return {
+    latest,
+    onContinue: () => {
+      // a finished chapter continues with the next one, not the solved scene
+      const next = latest.state?.solved && NEXT_PLAYABLE[latest.chapter];
+      if (next) { rideNext(); location.href = `./?chapter=${next}&go=1`; } else run(g => g.applySave(latest));
+    },
+    onLoad: () => run(g => g.loadMenu(() => g.title())),
+    scenes: [
+      // go=1: a fresh start straight into the chapter's intro, not the title screen again
+      ['Chapter I · Burritt Alley', '?go=1'],
+      ['Chapter I, skip the intro', '?skip=1'],
+      ['Chapter II · The Levantine', '?chapter=2&go=1'],
+      ['Chapter III · The St. Mark', '?chapter=3&go=1'],
+      ['Chapter IV · The Fat Man', '?chapter=4&go=1'],
+      ['Chapter V · The Gunsel', '?chapter=5&go=1'],
+      ['The Mark Hopkins Institute (free roam)', '?scene=hopkins'],
+    ],
+    onNew: () => run(g => { g.state.reset(); g.state.save(); g.boot(true); }),
+  };
+}
+
+// The title goes up at once, over the cab ride, instead of after the whole first scene has downloaded: the Scenes
+// menu works straight away, and Begin or Continue wait (with the ride showing) only for what is still to come.
+let pendingTitle = null;
+const EARLY = !PREVIEW && !SKIP && !GO && !LOAD;
+
 onLoadProgress(rideProgress);
 const ride = showRide(PREVIEW ? { to: 'Nob Hill', place: 'The Mark Hopkins Institute of Art', time: 'An evening walk' } : CHAPTER.ride);
 const assets = [loadModels(models), { hopkins: loadHopkins, kearny: loadKearny, palace: () => loadRoom('palace'), stmark: () => loadRoom('stmark') }[WORLD]?.() ?? loadSet()];
+if (EARLY) {
+  document.body.classList.add('early-title');
+  titleScreen(titleOptions(fn => { pendingTitle = fn; document.body.classList.remove('early-title'); }));
+}
 Promise.all(assets).then(() => { window.game = new Game(); return ride(); }).catch(err => {
   // a model or its data would not load (a dropped connection, usually): say so, and offer to try again
   console.error(err);

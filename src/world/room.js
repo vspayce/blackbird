@@ -2,13 +2,13 @@
 // A few warm lights move to the lamps nearest Holmes; the fire flickers. Used for Holmes's suite at the Palace
 // (Chapter II) and Brigid's at the St. Mark (Chapter III).
 import * as THREE from 'three';
-import { gltfLoader } from '../core/gltf.js';
+import { gltfLoader, fetchJSON } from '../core/gltf.js';
 
 let model = null, data = null;
 export function loadRoom(name) {
   return Promise.all([
     gltfLoader.loadAsync(`models/${name}.glb`).then(g => { model = g.scene; }),
-    fetch(`models/${name}.json`).then(r => r.json()).then(d => { data = d; }),
+    fetchJSON(`models/${name}.json`).then(d => { data = d; }),
   ]);
 }
 

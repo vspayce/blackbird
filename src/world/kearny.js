@@ -2,14 +2,14 @@
 // colliders, gas lamps, cover points (doorways, lamp posts, cabs) and named places from the JSON; a Sutter Street
 // cable car runs across the intersection on a loop and is cover while it passes.
 import * as THREE from 'three';
-import { gltfLoader } from '../core/gltf.js';
+import { gltfLoader, fetchJSON } from '../core/gltf.js';
 import { audio } from '../core/audio.js';
 
 let model = null, data = null;
 export function loadKearny() {
   return Promise.all([
     gltfLoader.loadAsync('models/kearny.glb').then(g => { model = g.scene; }),
-    fetch('models/kearny.json').then(r => r.json()).then(d => { data = d; }),
+    fetchJSON('models/kearny.json').then(d => { data = d; }),
   ]);
 }
 

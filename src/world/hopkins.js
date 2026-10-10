@@ -3,13 +3,13 @@
 // from art/build_hopkins.py (hopkins.glb + hopkins.json: colliders, rooms,
 // lamps and the places Holmes can use); the city below is generated here.
 import * as THREE from 'three';
-import { gltfLoader } from '../core/gltf.js';
+import { gltfLoader, fetchJSON } from '../core/gltf.js';
 
 let model = null, data = null;
 export function loadHopkins() {
   return Promise.all([
     gltfLoader.loadAsync('models/hopkins.glb').then(g => { model = g.scene; }),
-    fetch('models/hopkins.json').then(r => r.json()).then(d => { data = d; }),
+    fetchJSON('models/hopkins.json').then(d => { data = d; }),
   ]);
 }
 

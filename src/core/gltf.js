@@ -14,8 +14,33 @@ function report() {
   listener?.(loaded, total);
 }
 const loadAsync = gltfLoader.loadAsync.bind(gltfLoader);
-gltfLoader.loadAsync = (url, onProgress) => loadAsync(url, e => {
-  files.set(url, [e.loaded, e.lengthComputable ? e.total : 0]);
-  report();
-  onProgress?.(e);
-});
+// a download the server drops halfway (it happens on slow links) is tried again, up to three more times
+gltfLoader.loadAsync = async (url, onProgress) => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await loadAsync(url, e => {
+        files.set(url, [e.loaded, e.lengthComputable ? e.total : 0]);
+        report();
+        onProgress?.(e);
+      });
+    } catch (err) {
+      if (attempt >= 3) throw err;
+      files.set(url, [0, files.get(url)?.[1] ?? 0]); report();
+      await new Promise(r => setTimeout(r, 1000 * 2 ** attempt));
+    }
+  }
+};
+
+// a set's data file, tried again like the models if the connection drops it
+export async function fetchJSON(url) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`${url}: ${r.status}`);
+      return await r.json();
+    } catch (err) {
+      if (attempt >= 3) throw err;
+      await new Promise(r => setTimeout(r, 1000 * 2 ** attempt));
+    }
+  }
+}
