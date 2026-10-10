@@ -265,13 +265,21 @@ def wall(a, b, y0, y1, openings=(), mat='plaster', thick=T, solid=True):
     return F, L
 
 
+def collide_local(F, u0, u1, v0, v1, w0, w1):
+    """Collider round a box given in a piece's own frame. Takes all eight corners: two opposite corners alone
+    collapse to a sliver when the piece is turned off the axes (an angled wingback you could walk through)."""
+    ps = [F @ Vector((u, v, w)) for u in (u0, u1) for v in (v0, v1) for w in (w0, w1)]
+    collide(min(p.x for p in ps), min(p.y for p in ps), min(p.z for p in ps),
+            max(p.x for p in ps), max(p.y for p in ps), max(p.z for p in ps))
+
+
 def collide_seg(F, u0, u1, v0, v1, thick):
     p0 = F @ Vector((u0, v0, -thick / 2)); p1 = F @ Vector((u1, v1, thick / 2))
     collide(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z)
 
 
 def lining(F, L, side, openings, y_top, wains='oak_panel', upper='fresco_gothic', frieze='gilt_frame', w_h=1.3, thick=T,
-           curtains=None):
+           curtains=None, head='gothic', trim='trim_dark'):
     """Dress one face of a wall: panelled wainscot, a dado rail, decorated upper wall, a cornice.
     side = +1 for the face the frame's normal points to, -1 for the other."""
     off = side * (thick / 2)
@@ -282,20 +290,24 @@ def lining(F, L, side, openings, y_top, wains='oak_panel', upper='fresco_gothic'
         u1 = min(L, t - w / 2)
         if u1 > u:
             lbox(Fs, wains, u, u1, 0, w_h, 0, 0.03)
-            lbox(Fs, 'trim_dark', u, u1, w_h, w_h + 0.08, 0, 0.06)
+            lbox(Fs, trim, u, u1, w_h, w_h + 0.08, 0, 0.06)
             lbox(Fs, upper, u, u1, w_h + 0.08, y_top - 0.5, 0, 0.012)
             lbox(Fs, frieze, u, u1, y_top - 0.5, y_top - 0.42, 0, 0.05)
-            lbox(Fs, 'trim_dark', u, u1, y_top - 0.42, y_top, 0, 0.14)
-            lbox(Fs, 'trim_dark', u, u1, 0, 0.18, 0, 0.05)  # skirting
+            lbox(Fs, trim, u, u1, y_top - 0.42, y_top, 0, 0.14)
+            lbox(Fs, trim, u, u1, 0, 0.18, 0, 0.05)  # skirting
         if t > L: break
         # door or window surround
-        lbox(Fs, 'trim_dark', t - w / 2 - 0.12, t - w / 2, max(0, ob - 0.05), ot + 0.12, 0, 0.06)
-        lbox(Fs, 'trim_dark', t + w / 2, t + w / 2 + 0.12, max(0, ob - 0.05), ot + 0.12, 0, 0.06)
-        lbox(Fs, 'trim_dark', t - w / 2 - 0.12, t + w / 2 + 0.12, ot, ot + 0.12, 0, 0.06)
-        # a pointed Gothic head over the opening
-        for s in (-1, 1):
-            lbox(Fs, 'trim_dark', t + s * w / 4 - w / 4 - 0.02, t + s * w / 4 + w / 4 + 0.02, ot + 0.12 + w * 0.12, ot + 0.24 + w * 0.12,
-                 0, 0.05, rot=0)
+        lbox(Fs, trim, t - w / 2 - 0.12, t - w / 2, max(0, ob - 0.05), ot + 0.12, 0, 0.06)
+        lbox(Fs, trim, t + w / 2, t + w / 2 + 0.12, max(0, ob - 0.05), ot + 0.12, 0, 0.06)
+        lbox(Fs, trim, t - w / 2 - 0.12, t + w / 2 + 0.12, ot, ot + 0.12, 0, 0.06)
+        if head == 'gothic':  # a pointed Gothic head over the opening
+            for s in (-1, 1):
+                lbox(Fs, 'trim_dark', t + s * w / 4 - w / 4 - 0.02, t + s * w / 4 + w / 4 + 0.02, ot + 0.12 + w * 0.12, ot + 0.24 + w * 0.12,
+                     0, 0.05, rot=0)
+        elif head == 'cornice':  # a classical frieze and moulded cornice over the architrave
+            lbox(Fs, trim, t - w / 2 - 0.12, t + w / 2 + 0.12, ot + 0.12, ot + 0.36, 0, 0.04)
+            lbox(Fs, trim, t - w / 2 - 0.22, t + w / 2 + 0.22, ot + 0.36, ot + 0.44, 0, 0.12)
+            lbox(Fs, 'gilt_frame', t - w / 2 - 0.2, t + w / 2 + 0.2, ot + 0.33, ot + 0.36, 0, 0.07)
         if ot + 0.12 < y_top - 0.5:
             lbox(Fs, upper, t - w / 2 - 0.12, t + w / 2 + 0.12, ot + 0.12, y_top - 0.5, 0, 0.012)
         if ob > 0.3:  # under a window: panelling, and curtains drawn back either side
@@ -937,7 +949,9 @@ def load_pictures():
         name = 'pic_' + os.path.splitext(c['file'])[0][:24]
         material(name, '#808080', rough=0.55, tex=img, scale=None)
         PICTURES.append((name, w / h))
-    material('mirror', '#9aa4ac', rough=0.03, metal=1.0)
+    # old silvering, faintly lit by what it reflects: a sharp metal mirror flares every gas jet into bloom, and with
+    # no environment map a metal one shows black
+    material('mirror', '#5a6268', rough=0.45, metal=0.2, emit='#2e353a', emit_strength=1.0)
     material('liner', '#2a2018', rough=0.6)
 
 
@@ -959,7 +973,8 @@ def frame_painting(F, u, v, w, h, idx, depth=0.0):
     for a, b, c_, d in ((u - W - fw, u - W, v0 - lw - fw, v0 + H + fw), (u + W, u + W + fw, v0 - lw - fw, v0 + H + fw),
                         (u - W, u + W, v0 - lw - fw, v0 - lw), (u - W, u + W, v0 + H, v0 + H + fw)):
         lbox(F, 'gilt_frame', a, b, c_, d, depth, depth + 0.09)
-        lbox(F, 'gilt_frame', a + 0.02, b - 0.02, c_ + 0.02, d - 0.02, depth + 0.09, depth + 0.11)
+        if w > 1.2:  # the moulded lip, on the big gallery frames only: a hundred small frames' worth was 10k triangles
+            lbox(F, 'gilt_frame', a + 0.02, b - 0.02, c_ + 0.02, d - 0.02, depth + 0.09, depth + 0.11)
     # a picture light's brass hood on the big ones
     if w > 1.7:
         lbox(F, 'brass', u - 0.4, u + 0.4, v0 + H + fw + 0.12, v0 + H + fw + 0.2, depth, depth + 0.25)
@@ -1062,8 +1077,7 @@ def fireplace(F, u, mat='marble_white', w=2.0, h=1.4, mirror=True):
         q = F @ Vector((u + s * (w / 2 - 0.2), h + 0.08, d + 0.08))
         cyl('brass', q, 0.3, 0.05, 0.02, seg=8)
         cyl('candle', q + Vector((0, 0.3, 0)), 0.12, 0.012, seg=6)
-    lo, hi = F @ Vector((u - w / 2 - 0.3, 0, 0)), F @ Vector((u + w / 2 + 0.3, 1.5, d + 0.55))
-    collide(min(lo.x, hi.x), 0, min(lo.z, hi.z), max(lo.x, hi.x), 1.5, max(lo.z, hi.z))
+    collide_local(F, u - w / 2 - 0.3, u + w / 2 + 0.3, 0, 1.5, 0, d + 0.55)
 
 
 def drapes(F, t, w, ob, ot, mat='velvet_red'):
@@ -1123,8 +1137,7 @@ def sofa(x, z, rot, mat='velvet_red', L=2.1):
         lbox(F, mat, min(s * L / 2, s * (L / 2 - 0.16)), max(s * L / 2, s * (L / 2 - 0.16)), 0.3, 0.68, -0.42, 0.4)
         for zz in (-0.36, 0.36):
             cyl('walnut_panel', F @ Vector((s * (L / 2 - 0.08), 0, zz)), 0.3, 0.035, 0.025, seg=6)
-    lo, hi = F @ Vector((-L / 2, 0, -0.45)), F @ Vector((L / 2, 1, 0.46))
-    collide(min(lo.x, hi.x), 0, min(lo.z, hi.z), max(lo.x, hi.x), 1.0, max(lo.z, hi.z))
+    collide_local(F, -L / 2, L / 2, 0, 1.0, -0.45, 0.46)
 
 
 def wingback(x, z, rot, mat='velvet_green'):
@@ -1136,8 +1149,7 @@ def wingback(x, z, rot, mat='velvet_green'):
         lbox(F, mat, s * 0.36 - 0.06, s * 0.36 + 0.06, 0.5, 0.7, -0.35, 0.2)
         for zz in (-0.3, 0.3):
             cyl('walnut_panel', F @ Vector((s * 0.33, 0, zz)), 0.3, 0.03, 0.025, seg=6)
-    lo, hi = F @ Vector((-0.42, 0, -0.37)), F @ Vector((0.42, 1.25, 0.4))
-    collide(min(lo.x, hi.x), 0, min(lo.z, hi.z), max(lo.x, hi.x), 1.25, max(lo.z, hi.z))
+    collide_local(F, -0.42, 0.42, 0, 1.25, -0.37, 0.4)
 
 
 def pedestal_table(x, z, lamp=True, r=0.4):
@@ -1175,8 +1187,7 @@ def longcase_clock(x, z, rot):
     lbox(F, 'walnut_panel', -0.34, 0.34, 2.3, 2.4, -0.23, 0.23)
     for s in (-1, 0, 1):
         sphere('brass', F @ Vector((s * 0.25, 2.5, 0)), 0.04, 6)
-    lo, hi = F @ Vector((-0.3, 0, -0.2)), F @ Vector((0.3, 2.4, 0.2))
-    collide(min(lo.x, hi.x), 0, min(lo.z, hi.z), max(lo.x, hi.x), 2.4, max(lo.z, hi.z))
+    collide_local(F, -0.3, 0.3, 0, 2.4, -0.2, 0.2)
 
 
 def amphora(x, y, z, s=1.0, mat='plaster_cast'):
@@ -1232,8 +1243,7 @@ def card_catalogue(x, z, rot):
             u = -0.5 + i * 0.2; v = 0.15 + j * 0.25
             lbox(F, 'oak_panel', u - 0.08, u + 0.08, v, v + 0.18, 0.25, 0.27)
             sphere('brass', F @ Vector((u, v + 0.09, 0.29)), 0.012, 4)
-    lo, hi = F @ Vector((-0.6, 0, -0.25)), F @ Vector((0.6, 1.2, 0.27))
-    collide(min(lo.x, hi.x), 0, min(lo.z, hi.z), max(lo.x, hi.x), 1.2, max(lo.z, hi.z))
+    collide_local(F, -0.6, 0.6, 0, 1.2, -0.25, 0.27)
 
 
 def grand_piano(x, z, rot):
@@ -1262,8 +1272,7 @@ def grand_piano(x, z, rot):
     lbox(F, 'ebony_panel', -0.45, 0.45, 0.42, 0.5, -0.75, -0.45)  # bench
     for s in (-1, 1):
         lbox(F, 'ebony_panel', s * 0.4 - 0.03, s * 0.4 + 0.03, 0, 0.42, -0.72, -0.48)
-    lo, hi = F @ Vector((-0.8, 0, -0.8)), F @ Vector((0.8, 1.4, 2.05))
-    collide(min(lo.x, hi.x), 0, min(lo.z, hi.z), max(lo.x, hi.x), 1.4, max(lo.z, hi.z))
+    collide_local(F, -0.8, 0.8, 0, 1.4, -0.8, 2.05)
 
 
 def sconce(F, u, v, w=0.0):
@@ -1770,8 +1779,10 @@ def street_and_neighbours():
 
     # across the street: James Flood's brownstone (1886), with its famous bronze fence
     flood(-24, 26, 49.3)
-    # next door to the east: Leland Stanford's house, seen over the side wall
+    # next door to the east: Leland Stanford's house, seen over the side wall; to the west, across Mason
+    # Street, the Colton house
     stanford(44, -12, 24)
+    mason_street()
 
 
 def cable_car(x, y, z):
@@ -1844,11 +1855,111 @@ def flood(x0, x1, z):
         cypress(x, z + 1.6, 4.0, STREET_Y)
 
 
+def hip_roof(x0, x1, z0, z1, y, rise, mat='slate'):
+    """A low hipped roof behind a cornice, the Italianate kind (the neighbours'; the castle has its gables)."""
+    bm = bm_for(mat)
+    i = min(x1 - x0, z1 - z0) / 2 * 0.95
+    v = [bm.verts.new(q) for q in ((x0, y, z0), (x1, y, z0), (x1, y, z1), (x0, y, z1),
+                                   (x0 + i, y + rise, z0 + i), (x1 - i, y + rise, z0 + i),
+                                   (x1 - i, y + rise, z1 - i), (x0 + i, y + rise, z1 - i))]
+    for f in ((0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+        bm.faces.new([v[k] for k in f])
+
+
+def mansion(F, L, D, h, wall='paint_white', trim='trim_cream', lit_p=0.4, portico=0, veranda=None):
+    """A big Nob Hill Italianate in frame F (u along the front, w out of it, D deep behind it): a rusticated
+    basement, two tall storeys with pedimented windows, quoins, a belt course, a bracketed cornice and roof
+    balustrade, a hipped slate roof with chimneys. portico: columns across the middle of the front (the
+    Colton house's two-storey Corinthian one, or a porch); veranda: (u0, u1) of a columned veranda."""
+    lbox(F, wall, 0, L, -1.2, h, -D, 0)
+    lbox(F, 'stone', -0.15, L + 0.15, -1.2, 1.0, 0, 0.16)                       # the basement
+    for v in np.arange(-0.9, 1.0, 0.45):
+        lbox(F, 'trim_dark', -0.15, L + 0.15, v, v + 0.04, 0.16, 0.17)
+    lbox(F, trim, -0.1, L + 0.1, 4.7, 4.95, 0, 0.18)                             # belt course
+    for u in (0.0, L):                                                           # quoins
+        for k, v in enumerate(np.arange(1.0, h - 1.0, 0.6)):
+            a = 0.55 if k % 2 else 0.35
+            lbox(F, trim, u - a if u else -0.05, u + 0.05 if u else a, v, v + 0.5, 0, 0.08)
+    italianate_front(F, L, h, lit_p=lit_p, trim=trim)
+    if portico:
+        c = L / 2
+        cols = [c + (k - (portico - 1) / 2) * 2.0 for k in range(portico)]
+        top = h - 1.0 if portico > 4 else 4.6
+        for u in cols:
+            cyl(trim, F @ Vector((u, 1.0, 2.6)), top - 1.6, 0.3, 0.26, seg=10)
+            lbox(F, trim, u - 0.4, u + 0.4, 1.0, 1.3, 2.2, 3.0)                   # base
+            lbox(F, trim, u - 0.42, u + 0.42, top - 0.6, top - 0.35, 2.18, 3.02)  # capital
+        a, b = cols[0] - 0.8, cols[-1] + 0.8
+        lbox(F, trim, a, b, top - 0.35, top + 0.5, 0, 3.2)                        # entablature
+        if portico > 4:  # a pediment over it
+            bm = bm_for(trim)
+            q = [F @ Vector(p) for p in ((a, top + 0.5, 3.2), (b, top + 0.5, 3.2), (c, top + 2.3, 3.2))]
+            bm.faces.new([bm.verts.new(p) for p in q])
+        else:  # a balustrade on the porch roof
+            for u in np.arange(a + 0.2, b, 0.3):
+                cyl(trim, F @ Vector((u, top + 0.5, 3.0)), 0.55, 0.05, seg=5)
+            lbox(F, trim, a, b, top + 1.05, top + 1.15, 2.8, 3.2)
+        for k in range(6):                                                        # the steps up to it
+            lbox(F, 'stone', a + 0.6, b - 0.6, -1.2, -1.2 + (k + 1) * 0.37, 3.2 + (5 - k) * 0.4, 3.6 + (5 - k) * 0.4)
+    if veranda:
+        a, b = veranda
+        for u in np.arange(a, b + 0.01, (b - a) / max(1, round((b - a) / 2.4))):
+            cyl(trim, F @ Vector((u, 1.0, 2.4)), 3.4, 0.14, 0.12, seg=8)
+        lbox(F, trim, a - 0.2, b + 0.2, 4.4, 4.75, 0, 2.6)
+        lbox(F, 'stone', a - 0.2, b + 0.2, -1.2, 1.0, 0, 2.6)                    # its raised floor
+        for u in np.arange(a, b, 0.25):
+            cyl(trim, F @ Vector((u, 1.0, 2.45)), 0.75, 0.04, seg=5)
+        lbox(F, trim, a, b, 1.75, 1.85, 2.35, 2.55)
+    # the roof and its chimneys
+    corners = [F @ Vector(p) for p in ((-0.4, 0, 0.4), (L + 0.4, 0, 0.4), (L + 0.4, 0, -D - 0.4), (-0.4, 0, -D - 0.4))]
+    xs, zs = [p.x for p in corners], [p.z for p in corners]
+    hip_roof(min(xs), max(xs), min(zs), max(zs), h + 0.7, 3.2)
+    for t in (0.2, 0.8):
+        p = F @ Vector((L * t, 0, -D * 0.5))
+        wbox('brick_red', p.x - 0.45, p.x + 0.45, h + 1.0, h + 4.6, p.z - 0.3, p.z + 0.3)
+        wbox(trim, p.x - 0.55, p.x + 0.55, h + 4.6, h + 4.8, p.z - 0.4, p.z + 0.4)
+
+
 def stanford(x0, z0, z1):
-    """Seen over the side wall: Stanford's pale Italianate house, its side facing the Hopkins lawn (-x)."""
-    wbox('paint_white', x0, x0 + 20, -4, 14, z0, z1)
-    italianate_front(frame((x0, 0, z1), (0, 0, -1), (-1, 0, 0)), z1 - z0, 14, lit_p=0.45)
-    gable_roof(x0 - 0.3, x0 + 20.3, z0 - 0.3, z1 + 0.3, 14.7, 3.5, ridge_along='z')
+    """Leland Stanford's house next door (1876, California and Powell), seen over the garden wall: a long pale
+    Italianate whose side, with a veranda along it, faces the Hopkins lawn (-x); its front faces California
+    Street (+z) behind a porch. (It was a flat box with windows painted on one side.)"""
+    L = z1 - z0
+    # r x up = out: the side faces -x with u running from z0 to z1, the front faces +z
+    mansion(frame((x0, 0, z0), (0, 0, 1), (-1, 0, 0)), L, 20, 11.0, lit_p=0.45, veranda=(L * 0.3, L * 0.7))
+    F = frame((x0, 0, z1), (1, 0, 0), (0, 0, 1))
+    italianate_front(F, 20, 11.0, lit_p=0.5)
+    lbox(F, 'stone', 6, 14, -1.2, 1.0, 0, 3.0)
+    for u in (6.6, 9.0, 11.0, 13.4):
+        cyl('trim_cream', F @ Vector((u, 1.0, 2.6)), 3.4, 0.16, 0.13, seg=8)
+    lbox(F, 'trim_cream', 6, 14, 4.4, 4.8, 0, 3.0)
+    # the garden wall between the two lots, with a coping and the tops of shrubs over it
+    wbox('brick_red', x0 - 3.2, x0 - 2.8, -0.2, 1.9, z0 - 4, WALL_Z0)
+    wbox('stone', x0 - 3.3, x0 - 2.7, 1.9, 2.05, z0 - 4, WALL_Z0)
+
+
+def colton(x0, z0, z1):
+    """The Colton house across Mason Street (1872, California and Taylor; Huntington's from 1892): white, with
+    the two-storey Corinthian portico everyone called the finest on the hill. Front to California Street."""
+    W = x0 + 26
+    mansion(frame((x0, 0, z1), (1, 0, 0), (0, 0, 1)), 26, z1 - z0, 11.0, lit_p=0.3, portico=6)
+    italianate_front(frame((W, 0, z1), (0, 0, -1), (1, 0, 0)), z1 - z0, 11.0, lit_p=0.3)  # its side, toward us
+    wbox('grass', x0 - 12, W + 12, -1.35, -1.2, z0 - 10, z1 + 8)
+    for z in np.arange(z0 - 6, z1 + 6, 4.5):
+        cypress(W + 5.5, z, 5.0, -1.2)
+
+
+def mason_street():
+    """Mason Street, down the west side of the Hopkins terrace below its wall, so the lawn's west edge looks
+    onto something: the street, its lamps and the Colton house over the way."""
+    wbox('cobbles', -58, -44, STREET_Y - 0.45, STREET_Y - 0.15, -30, 33.3)
+    wbox('flags', -44, -41, STREET_Y - 0.3, STREET_Y, -30, 33.3)
+    wbox('flags', -61, -58, STREET_Y - 0.3, STREET_Y, -30, 33.3)
+    wbox('granite', -41, -40.2, STREET_Y - 0.3, 0.9, -17.5, WALL_Z0)      # the terrace's retaining wall
+    wbox('trim_cream', -41.1, -40.1, 0.9, 1.04, -17.5, WALL_Z0)
+    for z in (-12, 4, 20):
+        LAMPS.append(list(gas_lamp(-43.4, z, y=STREET_Y)))
+    colton(-90, -14, 18)
 
 
 def grounds_garden():
@@ -1900,7 +2011,6 @@ def grounds_garden():
 
 def build_grounds():
     exterior_materials()
-    castle_detail()
     grounds_garden()
     street_and_neighbours()
 
@@ -1999,8 +2109,7 @@ def four_poster(x, z, rot):
     for s in (-1, 1):                                                    # hangings, drawn back at the foot
         lbox(F, 'velvet_red', s * 0.88 - 0.03, s * 0.88 + 0.03, 0.4, 2.6, -1.0, -0.2)
         lbox(F, 'velvet_red', s * 0.88 - 0.03, s * 0.88 + 0.03, 0.4, 2.6, 0.85, 1.12)
-    lo, hi = F @ Vector((-0.9, 0, -1.05)), F @ Vector((0.9, 2.85, 1.15))
-    collide(min(lo.x, hi.x), 0, min(lo.z, hi.z), max(lo.x, hi.x), 2.85, max(lo.z, hi.z))
+    collide_local(F, -0.9, 0.9, 0, 2.85, -1.05, 1.15)
 
 
 def cabinet(x, z, rot, w=1.2, h=2.2, d=0.55, mat='rosewood_panel', drawers=0):
@@ -2017,8 +2126,7 @@ def cabinet(x, z, rot, w=1.2, h=2.2, d=0.55, mat='rosewood_panel', drawers=0):
             lbox(F, mat, s * w / 4 - w / 4 + 0.03, s * w / 4 + w / 4 - 0.03, 0.15, h - 0.25, d / 2, d / 2 + 0.02)
             sphere('brass', F @ Vector((s * 0.06, h / 2, d / 2 + 0.04)), 0.025, 6)
         lbox(F, mat, -w / 2 - 0.05, w / 2 + 0.05, h, h + 0.12, -d / 2 - 0.04, d / 2 + 0.04)
-    lo, hi = F @ Vector((-w / 2, 0, -d / 2)), F @ Vector((w / 2, h, d / 2 + 0.04))
-    collide(min(lo.x, hi.x), lo.y, min(lo.z, hi.z), max(lo.x, hi.x), hi.y, max(lo.z, hi.z))
+    collide_local(F, -w / 2, w / 2, 0, h, -d / 2, d / 2 + 0.04)
 
 
 def modelling_stand(x, z, idx):
@@ -2239,7 +2347,7 @@ def main():
     furnish(R)
     dress_rooms(R)
     build_solarium_glass()
-    build_exterior()
+    import hopkins_house; hopkins_house.build(sys.modules[__name__])  # the house's outside (art/hopkins_house.py)
     build_upper()
     build_grounds()
     root = finish('Hopkins')
