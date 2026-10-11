@@ -86,7 +86,9 @@ class Game {
       const w = s.worldId && this.world.interact?.find(i => i.id === s.worldId);
       if (w) return { pos: w.pos, r: w.r, label: w.label, ...s };
       const p = s.place && this.world.data?.places?.[s.place];  // a named place in the world (a shop door)
-      if (p) return { pos: [p[0], p[1] + 1.4, p[2]], r: 2.2, ...s };
+      // a place on the ground (a shop door) gets its marker at eye level; a thing in a room (boots on the fender,
+      // a paper on the table) has its own height, and the marker sits right on it
+      if (p) return { pos: [p[0], p[1] < 0.05 ? p[1] + 1.4 : p[1] + 0.08, p[2]], r: 2.2, ...s };
       return s;
     });
     // the world's own doings: in the preview all of them, in a chapter only travel (the tower stair)
@@ -923,11 +925,17 @@ class Game {
         if (!this.spotLive(s) || !this.sameFloor(s.pos[1], p)) continue;
         const found = s.clues ? s.clues.every(c => this.state.has(c)) : s.clue && this.state.has(s.clue);
         const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
-        if (s.focus && !found) {
+        const read = found || (s.event && this.spent(s));  // examined already: it stays, marked with an X
+        if (s.focus && !read) {
           if (f < 0.3 || d > 9) continue;
-        } else if (found || this.spent(s) || d > 5 || s.closeup) continue;
+        } else if (d > 5 || s.closeup) continue;
         const sc = this.project(...s.pos);
         if (!sc) continue;
+        if (read) {  // tap the X to read it again
+          const again = s.clues ? s.clues.map(c => CLUES[c].text).join(' ') : s.clue ? CLUES[s.clue].text : s.say;
+          hud.label('spot:' + s.id, sc[0], sc[1], s.label ?? '', 'mark done', () => again && this.hud.say(again));
+          continue;
+        }
         hud.label('spot:' + s.id, sc[0], sc[1], s.label, s.focus ? 'mark focus' : 'mark', () => {
           const dd = Math.hypot(s.pos[0] - this.holmes.object.position.x, s.pos[2] - this.holmes.object.position.z);
           if (dd < s.r * 1.3) this.interact({ spot: s });

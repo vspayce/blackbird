@@ -124,7 +124,12 @@ body[data-mode=talk] #pad-hint { display: none !important; }
 }
 .wl.mark span { display: none; }  /* markers are bare circles; what's there is revealed on a tap */
 .wl.mark.focus::before { border-color: var(--focus); box-shadow: 0 0 14px var(--focus); }
-.wl.mark.done::before { border-color: var(--gold); animation: none; opacity: 0.7; }
+/* a clue already read: a gold X where the circle was */
+.wl.mark.done::before, .wl.mark.done::after {
+  content: ''; position: absolute; left: 23px; top: 9px; width: 2.5px; height: 30px; border: none; border-radius: 2px;
+  background: var(--gold); box-shadow: 0 0 6px rgba(0,0,0,0.9); animation: none; opacity: 0.85; transform: rotate(45deg);
+}
+.wl.mark.done::after { transform: rotate(-45deg); }
 @keyframes pulse { 50% { transform: scale(1.18); } }
 .wl.read span {
   display: block; white-space: nowrap; font-family: var(--type); font-size: 13px; color: #fff;
