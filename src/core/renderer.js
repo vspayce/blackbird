@@ -62,7 +62,7 @@ export class Renderer {
     this.composer = new EffectComposer(this.r, rt);
     this.composer.addPass(new RenderPass(scene, camera));
     // threshold above 1: lamplit walls never bloom, only light sources do
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.6, 1.1);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.38, 0.45, 1.3);
     this.composer.addPass(this.bloom);
     this.grade = new ShaderPass(Grade);
     this.composer.addPass(this.grade);

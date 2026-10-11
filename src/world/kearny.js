@@ -81,7 +81,7 @@ export class Kearny {
     const near = this.lamps.map(l => [l, l.distanceToSquared(holmes)]).sort((a, b) => a[1] - b[1]);
     this.gas.forEach((g, i) => {
       g.position.copy(near[i][0]);
-      g.intensity = 14 * (1 + Math.sin(t * 9 + i * 1.7) * 0.03);
+      g.intensity = 9 * (1 + Math.sin(t * 9 + i * 1.7) * 0.03);
     });
   }
 }

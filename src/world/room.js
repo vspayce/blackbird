@@ -45,7 +45,7 @@ export class Room {
       const n = near[i]; if (!n) return;
       g.position.copy(n[0]);
       const fire = n[0].y < 1;  // the firelight, low down: it flickers
-      g.intensity = (fire ? 6 + Math.sin(t * 11) * 1.2 + Math.sin(t * 7.3) * 0.8 : 12);
+      g.intensity = (fire ? 5 + Math.sin(t * 11) * 1.0 + Math.sin(t * 7.3) * 0.7 : 8);
       g.color.set(fire ? '#ff8a40' : '#ffb468');
     });
   }

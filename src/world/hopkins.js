@@ -204,7 +204,7 @@ export class Hopkins {
       g.position.copy(n[0]);
       const flick = 1 + Math.sin(t * 9 + i * 1.7) * 0.03;
       const big = n[0].level === 'hall' || n[0].level === 2;
-      g.intensity = (big ? 30 : 16) * flick;
+      g.intensity = (big ? 18 : 9) * flick;  // enough to pool on the floor, not to whiten the stone
       g.distance = big ? 22 : 13;
     });
   }

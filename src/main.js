@@ -71,6 +71,16 @@ class Game {
       this.world = this.alley = new Alley(this.scene);
     }
     this.colliders = this.world.colliders;
+    // the sets are built bright (lamp glass at 6x); on screen that blooms into great blobs and washes stone
+    // out, so light sources are tamed here, for every world
+    const GLOW = { lamp_glass: 2.2, candle: 2.4, coals: 2.6 };
+    this.scene.traverse(o => {
+      if (!o.isMesh) return;
+      for (const m of [o.material].flat()) {
+        if (m.name in GLOW) m.emissiveIntensity = Math.min(m.emissiveIntensity, GLOW[m.name]);
+        else if (/^glass_lit/.test(m.name)) m.emissiveIntensity = Math.min(m.emissiveIntensity, 1.4);
+      }
+    });
     // the case's places to look: worldId spots take their position, reach and label from the world
     this.spots = PREVIEW ? [] : SPOTS.map(s => {
       const w = s.worldId && this.world.interact?.find(i => i.id === s.worldId);
@@ -843,7 +853,7 @@ class Game {
     const PLACE_MIN = -0.3, place = Math.max(this.pitch, PLACE_MIN);
     const cp = Math.cos(place);
     const dir = _v.set(Math.sin(this.yaw) * cp, Math.sin(place), Math.cos(this.yaw) * cp);
-    let dist = this.camDist;
+    let dist = this.camDist + 2.5 * (this.upTilt ?? 0);  // stand back to take in a facade, where there is room
     // (the walking colliders are boxes round furniture and walls; the camera tests the real geometry instead)
     dist = Math.max(0.06, this.camCol.limit(target, dir, dist));  // the real walls, frames and furniture; at worst, his eyes
     // backed into a corner: pick the most open direction once, then swing round to it (the player's own
@@ -1030,7 +1040,9 @@ class Game {
     } else this.meter = Math.min(1, this.meter + dt * 0.08);
     this.focus = damp(this.focus, this.focusOn || ['portrait', 'fight'].includes(this.mode) ? 1 : 0, 5, dt);
     const wdt = dt * (1 - 0.7 * this.focus);
-    this.camera.fov = 55 - 7 * this.focus;
+    // looking up, the lens widens a little so a whole tower or ceiling fits; Focus narrows it
+    this.upTilt = damp(this.upTilt ?? 0, Math.max(0, -0.3 - this.pitch) / 0.5, 6, dt);
+    this.camera.fov = 55 - 7 * this.focus + 14 * this.upTilt;
     this.camera.updateProjectionMatrix();
 
     if (this.mode === 'explore') this.updateHolmes(dt);
