@@ -730,7 +730,7 @@ class Game {
     const look = this.input.takeLook(dt);
     this.yaw -= look.x * 0.006;
     this.lookHeld = look.x || look.y ? 0.8 : Math.max(0, (this.lookHeld ?? 0) - dt);  // the player is aiming the camera
-    this.pitch = Math.max(-0.15, Math.min(0.95, this.pitch + look.y * 0.004));
+    this.pitch = Math.max(-0.8, Math.min(0.95, this.pitch + look.y * 0.004));  // down to the floor, up to towers and ceilings
 
     const m = this.input.moveVector();
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
@@ -838,8 +838,11 @@ class Game {
       return;
     }
     const target = _w.set(h.x, h.y + 1.55, h.z);
-    const cp = Math.cos(this.pitch);
-    const dir = _v.set(Math.sin(this.yaw) * cp, Math.sin(this.pitch), Math.cos(this.yaw) * cp);
+    // looking up, the camera stays at his shoulder and only the view tilts: sinking it to his heels would put his
+    // own back between the lens and the tower
+    const PLACE_MIN = -0.3, place = Math.max(this.pitch, PLACE_MIN);
+    const cp = Math.cos(place);
+    const dir = _v.set(Math.sin(this.yaw) * cp, Math.sin(place), Math.cos(this.yaw) * cp);
     let dist = this.camDist;
     // (the walking colliders are boxes round furniture and walls; the camera tests the real geometry instead)
     dist = Math.max(0.06, this.camCol.limit(target, dir, dist));  // the real walls, frames and furniture; at worst, his eyes
@@ -850,7 +853,7 @@ class Game {
       let best = null, room = dist + 0.5;
       for (let k = 1; k < 16; k++) {
         const dy = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * Math.PI / 8, y = this.yaw + dy;
-        const r = this.camCol.limit(target, _u.set(Math.sin(y) * cp, Math.sin(this.pitch), Math.cos(y) * cp), this.camDist);
+        const r = this.camCol.limit(target, _u.set(Math.sin(y) * cp, Math.sin(place), Math.cos(y) * cp), this.camDist);
         if (r > room) { room = r; best = y; }
       }
       this.steerTo = best;
@@ -877,8 +880,13 @@ class Game {
       const o = p.fig.object.position;
       lens(p.fig.object, Math.hypot(o.x - cam.position.x, o.z - cam.position.z) < 0.5 && cam.position.y < o.y + 2.1, p);
     }
-    this.camLook = target.clone();
-    cam.lookAt(target);
+    if (this.pitch < PLACE_MIN) {  // tilt the view up past his shoulder, toward towers and ceilings
+      const cv = Math.cos(this.pitch);
+      _u.set(-Math.sin(this.yaw) * cv, -Math.sin(this.pitch), -Math.cos(this.yaw) * cv);
+      // aim from his head along the tilted view, so he stays low in the frame instead of swinging out of it
+      this.camLook = target.clone().addScaledVector(_u, 12);
+    } else this.camLook = target.clone();
+    cam.lookAt(this.camLook);
   }
 
   project(x, y, z) {
