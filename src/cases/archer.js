@@ -44,11 +44,27 @@ export const CLUES = {
 export const DEDUCTIONS = {
   unready: { from: ['coat', 'gun'], title: 'Archer felt no danger', text: 'Coat buttoned, gun never touched. He did not think he needed it.' },
   close: { from: ['wound', 'burns'], title: 'Face to face, at arm\'s length', text: 'He was shot from the front, close enough to scorch the cloth. He let the killer come right up to him.' },
-  knew: { from: ['unready', 'close'], title: 'Archer knew his killer', text: 'No man lets a stranger walk up to him in a dark alley at two in the morning without his hand going to his gun. Archer knew the killer, and trusted them.', key: true },
-  lady: { from: ['heel', 'scent'], title: 'A woman was here tonight', text: 'A lady\'s heel and a lady\'s scent, both in an alley where no lady has business at this hour.' },
-  wasWonderly: { from: ['lady', 'wonderly'], title: 'Miss Wonderly stood here', text: 'Lavender water and a small, narrow boot. It was Miss Wonderly who waited under the lamp.', key: true },
-  lured: { from: ['card', 'job'], title: 'Archer came to meet someone', text: 'He was not following Thursby here. The card says he had an appointment, made in someone else\'s hand.' },
-  frame: { from: ['webley', 'thursby'], title: 'The gun points at Thursby', text: 'Thursby\'s own English revolver, thrown where the police would find it, while Thursby was drunk at the Belvedere. Somebody wants him hanged for this.', key: true },
+  knew: { from: ['unready', 'close'], title: 'Archer knew his killer', text: 'No man lets a stranger walk up to him in a dark alley at two in the morning without his hand going to his gun. Archer knew the killer, and trusted them.', key: true,
+    readings: [
+      { id: 'trusted', right: true, title: 'Archer knew his killer', text: 'No man lets a stranger walk up to him in a dark alley at two in the morning without his hand going to his gun. Archer knew the killer, and trusted them.' },
+      { id: 'stranger', title: 'A stranger had the drop on him', text: 'A revolver already levelled holds any man still. Someone stepped out of the fog with the gun up, and Archer never had the chance to move.' },
+    ] },
+  lady: { from: ['heel', 'scent'], title: 'A woman was here tonight', text: 'A lady\'s heel and a lady\'s scent, both in an alley where no lady has business at this hour.',
+    readings: [
+      { id: 'waited', right: true, title: 'A woman waited here tonight', text: 'The prints are sharp in tonight\'s damp and the scent has not had time to thin. She stood under the lamp, and she stood there for Archer.' },
+      { id: 'earlier', title: 'Some earlier visitor', text: 'An alley behind a saloon sees all manner of company. A heel and a scent may be hours old, and nothing to do with Archer.' },
+    ] },
+  wasWonderly: { when: ['lady:waited'], from: ['lady', 'wonderly'], title: 'Miss Wonderly stood here', text: 'Lavender water and a small, narrow boot. It was Miss Wonderly who waited under the lamp.', key: true },
+  lured: { from: ['card', 'job'], title: 'Archer came to meet someone', text: 'He was not following Thursby here. The card says he had an appointment, made in someone else\'s hand.',
+    readings: [
+      { id: 'appointment', right: true, title: 'Archer came to meet someone', text: 'He was not following Thursby here. The card says he had an appointment, made in someone else\'s hand.' },
+      { id: 'tailing', title: 'Archer followed Thursby here', text: 'His work was to shadow Thursby. The pencilled note is only where the client said Thursby would be at two, and Archer went after him into the dark.' },
+    ] },
+  frame: { from: ['webley', 'thursby'], title: 'The gun points at Thursby', text: 'Thursby\'s own English revolver, thrown where the police would find it, while Thursby was drunk at the Belvedere. Somebody wants him hanged for this.', key: true,
+    readings: [
+      { id: 'planted', right: true, title: 'The gun was left to be found', text: 'Thursby\'s own English revolver, thrown where the police would find it, while Thursby was drunk at the Belvedere. Somebody wants him hanged for this.' },
+      { id: 'fired', against: ['innocent'], title: 'Thursby fired and threw it away', text: 'An English gunman, an English revolver with one chamber fired, flung over the fence as he ran. The simplest reading of all.' },
+    ] },
   innocent: { from: ['alibi', 'frame'], title: 'Thursby did not fire', text: 'Thursby was at the Belvedere when the shot was fired. His gun was here; he was not. Someone borrowed it.' },
   backed: { from: ['fence', 'heel'], title: 'The killer came from the street', text: 'Archer stood with the dead end behind him. Whoever met him came from Bush Street and stood between him and the way out.' },
 };
@@ -186,7 +202,122 @@ export const CONCLUSION = {
 // Clues and deductions share one namespace in the casebook and Mind Palace.
 for (const id of Object.keys(DEDUCTIONS)) console.assert(!CLUES[id], `id "${id}" is both a clue and a deduction`);
 
-export const EVENTS = {};
+// The conclusions the Mind Palace can reach (Unity). Each forms when the deductions it rests on are drawn and read
+// its way ('id' or 'id:reading'); more than one can stand at once, and Holmes may choose a wrong one. `choice` is
+// what he then does about it; `then` is how a wrong conclusion comes home to him. Every path ends in the same place.
+export const VERDICTS = [
+  {
+    id: 'wonderly', right: true, name: 'Miss Wonderly', title: 'Miss Wonderly shot Miles Archer',
+    needs: ['knew:trusted', 'wasWonderly', 'lured:appointment', 'frame:planted'],
+    statement: 'She lured him here with her card, walked up to him under the lamp he trusted, and shot him at arm\'s length. Then she threw Thursby\'s gun over the fence for Polhaus to find.',
+    epilogue: [['Watson', 'Then we must tell Polhaus at once!']],
+    choice: {
+      prompt: 'Polhaus is twenty yards away. What is he to be told?',
+      options: [
+        { id: 'silent', label: 'Say nothing', sub: 'Let her believe she has fooled us', lines: [
+          ['Holmes', 'And tell him what? A scent and a heel print. She would be on the morning boat to Hong Kong before the ink was dry.'],
+          ['Holmes', 'No, Watson. She thinks she has made fools of us. Let her keep thinking it. Whatever she killed for is still in this city, and she will lead us to it.'],
+        ] },
+        { id: 'tell', label: 'Give Polhaus her name', sub: 'The law should have what we have', lines: [
+          ['Holmes', 'Sergeant. Look for a small woman in blue gloves who wears lavender water. She calls herself Wonderly.'],
+          ['Polhaus', 'On a smell and a heel mark, Mr. Holmes? Dundy would laugh me off the force. Bring me something a jury can hold in its hands.'],
+          ['Holmes', 'Then I shall, Sergeant. (And by noon she will know that somebody has been asking after her.)'],
+        ] },
+      ],
+    },
+    then: [['Holmes', 'Come, Watson. Back to the Palace for an hour\'s sleep. Somebody else wants what Archer was paid to find, and I fancy they will come to us.']],
+  },
+  {
+    id: 'thursby', name: 'Floyd Thursby', title: 'Floyd Thursby shot Miles Archer',
+    needs: ['frame:fired', 'lured:tailing'],
+    statement: 'Archer shadowed his man into the alley. Thursby turned on him, fired once, and threw the Webley over the fence as he ran.',
+    epilogue: [
+      ['Holmes', 'Your man is Floyd Thursby, Sergeant. An Englishman who drinks at the Belvedere. That is his revolver in the weeds.'],
+      ['Polhaus', 'Thursby. That\'ll suit Dundy down to the ground. I\'ll send two men round to his hotel.'],
+    ],
+    then: [
+      ['', 'The Palace Hotel, a little before five.'],
+      ['Polhaus', 'Thought you\'d want to know. Thursby was shot down outside his hotel on Geary Street half an hour after you named him. And Kelly now swears the man was at the Belvedere bar at ten to two, too drunk to stand.'],
+      ['Holmes', 'Then I have made the capital mistake, Watson. I took the simplest reading because it was held out to me.'],
+      ['Holmes', 'The gun was left for us to find. Ask who gains by it. A woman in blue gloves, who wears lavender water, and who knew exactly where Archer would be at two.'],
+      ['Holmes', 'She has had her way tonight. She shall not have it twice. Somebody else wants what Archer was paid to find, and I fancy they will come to us.'],
+    ],
+  },
+  {
+    id: 'footpad', name: 'A footpad', title: 'A footpad shot Miles Archer',
+    needs: ['knew:stranger', 'lady:earlier'],
+    statement: 'A thief stepped out of the fog with his gun already up. Archer had no chance to move. It is robbery, as the Lieutenant would have it.',
+    epilogue: [
+      ['Holmes', 'I can give you nothing better than your Lieutenant\'s footpad, Sergeant.'],
+      ['Polhaus', 'That so. Didn\'t think to hear Dundy\'s line from you, Mr. Holmes. Well. Goodnight to you.'],
+    ],
+    then: [
+      ['', 'The Palace Hotel, a little before five.'],
+      ['Watson', 'You have not slept, Holmes.'],
+      ['Holmes', 'A footpad who takes nothing, Watson. The watch, the purse, a loaded revolver, all where he left them. I have been lazy, and Polhaus knew it.'],
+      ['Holmes', 'Archer let someone come within arm\'s reach. The heel prints were tonight\'s. And we both know who wears lavender water.'],
+      ['Holmes', 'She has had her way tonight. She shall not have it twice. Somebody else wants what Archer was paid to find, and I fancy they will come to us.'],
+    ],
+  },
+];
+
+// Evidence pinned in the Notebook can be put to anyone (Unity): what each has to say about it, and what they say
+// when it means nothing to them.
+export const ASK = {
+  polhaus: {
+    none: [['Polhaus', 'Can\'t say that means a thing to me, Mr. Holmes.']],
+    webley: [['Polhaus', 'An army Webley? There ain\'t three of those in the city. I\'ll have the boys try the pawnshops.'], ['Holmes', 'Ask rather who has been heard boasting of one, Sergeant.']],
+    card: [['Polhaus', 'Wonderly, St. Mark Hotel. That the client?'], ['Holmes', 'It is. And the pencil on the back is not Archer\'s hand.'], ['Polhaus', 'Then somebody told him where to be, and when.']],
+    heel: [['Polhaus', 'A woman\'s boot, down here? The girls from the Belvedere don\'t come this far back. Not at night.']],
+    fence: [['Polhaus', 'He went back hard. Another foot and he\'d have gone through the boards and down the bank.']],
+    scent: [['Polhaus', 'All I smell is fog and the Chop House bins, Mr. Holmes.']],
+    coat: [['Polhaus', 'Buttoned up like he was walking to church. Miles always was a dresser.']],
+    wonderly: [['Polhaus', 'Never laid eyes on her. Dundy will want her found by morning, client or no client.']],
+  },
+  kelly: {
+    none: [['Kelly', 'I couldn\'t say, sir.']],
+    hack: [['Kelly', 'A two-horse hack, sir, lamps lit, going at a fair clip toward Stockton Street. I thought nothing of it.'], ['Holmes', 'At two in the morning, three hours after the theatres?'], ['Kelly', '…No, sir. I see that now.']],
+    heel: [['Kelly', 'Not mine, sir. Regulation boots. And I kept to the middle, like the sergeant said.']],
+    webley: [['Kelly', 'An English revolver, sir? There\'s a fellow at the Belvedere never stops talking about his.']],
+    scent: [['Kelly', 'I did think it smelt sweet coming down the alley, sir. I put it down to the fog.']],
+  },
+  watson: {
+    none: [['Watson', 'I can add nothing to that, Holmes.']],
+    wonderly: [['Watson', 'Blue gloves, yes. I thought it merely the cold.'], ['Holmes', 'Beside Archer\'s stove, Watson?']],
+    scent: [['Watson', 'Lavender. My dear Holmes, Miss Wonderly wore lavender water.'], ['Holmes', 'So she did.']],
+    webley: [['Watson', 'A Webley, .455. I carried its brother in Afghanistan. Not a weapon one sees in America.']],
+    burns: [['Watson', 'Scorching like that means inches, not feet. The muzzle all but touched him.']],
+    card: [['Watson', 'Not Archer\'s hand. His was a great scrawl. This is small and upright; a woman\'s, I should say.']],
+    heel: [['Watson', 'A small foot and a short stride. Five foot four at the most.']],
+  },
+};
+
+// The shooting, put back in order where Archer fell (Unity): open once the scene has given up enough to do it.
+// It names nobody; who the other was is for the Mind Palace.
+export const EVENTS = {
+  shooting: {
+    type: 'reconstruct', title: 'Ten minutes to two', done: 'So it went',
+    prompt: 'Everything needed is here. Put the night back in the order it happened.',
+    fragments: [
+      'A hack draws up on Bush Street. Someone steps down, and waits under the alley lamp.',
+      'Archer comes down the alley, coat buttoned to the collar, and goes on toward the dead end.',
+      'The other follows, and stops an arm\'s length from him. He turns, the fence at his back.',
+      'One shot, close enough to scorch the cloth. He goes back through the boards.',
+      'A revolver goes over the fence into the weeds. The hack is gone before Kelly rounds the corner.',
+    ],
+    wrong: ['No. That cannot come yet.', 'Something else came before that.', 'Out of its order. Again.'],
+    after: [
+      ['Watson', 'You speak as if you had stood here and watched it done.'],
+      ['Holmes', 'I have only set what we found in the order it must have happened, Watson. Who the other was, and why Archer let them come so near, is another matter.'],
+    ],
+  },
+};
+
+// Spots only the Unity game has.
+export const UNITY_SPOTS = [
+  { id: 'shooting', label: 'Reconstruct the shooting', pos: [0.1, 0.3, -18.3], r: 1.7, event: 'shooting',
+    needs: ['wound', 'burns', 'fence', 'heel', 'scent', 'hack', 'webley'] },
+];
 
 // What to do next, for the objective line and the notebook.
 export function objective(s) {
