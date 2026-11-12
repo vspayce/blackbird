@@ -17,6 +17,11 @@
 # capes and hats made here and fitted to the body by ray-casting its
 # silhouette), re-rested arms-down, with Idle / Walk / Talk / LieBack clips.
 # Exports public/models/<name>.glb and saves art/humans/<name>.blend.
+#
+# AFTER a build, run the polish pass, which replaces these first clips with the procedural ones (walk and run
+# cycles, a living idle, gestures, kneeling, the dead man...), adds the cloth normal maps and the blink shape keys,
+# and re-exports the GLBs (it needs only `import bpy`, not MPFB):
+#   python3 art/polish_humans.py -- [--only holmes,watson]
 import bpy, bmesh, math, os, sys, glob, random
 from mathutils import Vector, Matrix, Quaternion
 from mathutils.bvhtree import BVHTree
@@ -1341,6 +1346,8 @@ def tidy(name):
 
 def build(name, c):
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.context.scene.render.fps = FPS  # the clips are keyed for 30 fps (the factory scene is 24: a slower walk
+    # than walk_speed says, and sliding feet)
     random.seed(1)
     body, rig, parts = make_body(c)
     rig.name = f'{name.capitalize()}_rig'

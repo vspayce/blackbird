@@ -1,0 +1,1197 @@
+{
+ "archer": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 20,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.667,
+   "speed": 3.3,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 32,
+   "in_place": true,
+   "loop": true,
+   "seconds": 1.067,
+   "speed": 1.3,
+   "web_step": 1
+  }
+ },
+ "brigid": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 22,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.733,
+   "speed": 2.5,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 30,
+   "in_place": true,
+   "loop": true,
+   "seconds": 1.0,
+   "speed": 0.95,
+   "web_step": 1
+  }
+ },
+ "cairo": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 20,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.667,
+   "speed": 3.0,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 28,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.933,
+   "speed": 1.15,
+   "web_step": 1
+  }
+ },
+ "gutman": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 26,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.867,
+   "speed": 1.9,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 40,
+   "in_place": true,
+   "loop": true,
+   "seconds": 1.333,
+   "speed": 0.9,
+   "web_step": 1
+  }
+ },
+ "holmes": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 20,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.667,
+   "speed": 3.6,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 30,
+   "in_place": true,
+   "loop": true,
+   "seconds": 1.0,
+   "speed": 1.4,
+   "web_step": 1
+  }
+ },
+ "kelly": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "GuardIdle": {
+   "frames": 300,
+   "in_place": true,
+   "loop": true,
+   "seconds": 10.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "NotesIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 20,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.667,
+   "speed": 3.6,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 30,
+   "in_place": true,
+   "loop": true,
+   "seconds": 1.0,
+   "speed": 1.35,
+   "web_step": 1
+  }
+ },
+ "polhaus": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "GuardIdle": {
+   "frames": 300,
+   "in_place": true,
+   "loop": true,
+   "seconds": 10.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "NotesIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 22,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.733,
+   "speed": 3.1,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 34,
+   "in_place": true,
+   "loop": true,
+   "seconds": 1.133,
+   "speed": 1.25,
+   "web_step": 1
+  }
+ },
+ "watson": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "NotesIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 20,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.667,
+   "speed": 3.3,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 32,
+   "in_place": true,
+   "loop": true,
+   "seconds": 1.067,
+   "speed": 1.3,
+   "web_step": 1
+  }
+ },
+ "wilmer": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 18,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.6,
+   "speed": 3.5,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 28,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.933,
+   "speed": 1.3,
+   "web_step": 1
+  }
+ },
+ "wren": {
+  "Aim": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "HandsUp": {
+   "frames": 120,
+   "in_place": true,
+   "loop": true,
+   "seconds": 4.0,
+   "web_step": 4
+  },
+  "Idle": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "KneelDown": {
+   "frames": 45,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.5,
+   "web_step": 2
+  },
+  "KneelIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 3
+  },
+  "KneelUp": {
+   "frames": 42,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.4,
+   "web_step": 2
+  },
+  "LieBack": {
+   "frames": 1,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.033,
+   "web_step": 1
+  },
+  "Nod": {
+   "frames": 39,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.3,
+   "web_step": 2
+  },
+  "Point": {
+   "frames": 66,
+   "in_place": true,
+   "loop": false,
+   "seconds": 2.2,
+   "web_step": 2
+  },
+  "Run": {
+   "frames": 28,
+   "in_place": true,
+   "loop": true,
+   "seconds": 0.933,
+   "speed": 1.8,
+   "web_step": 1
+  },
+  "Shrug": {
+   "frames": 54,
+   "in_place": true,
+   "loop": false,
+   "seconds": 1.8,
+   "web_step": 2
+  },
+  "Talk": {
+   "frames": 360,
+   "in_place": true,
+   "loop": true,
+   "seconds": 12.0,
+   "web_step": 3
+  },
+  "ThinkIdle": {
+   "frames": 240,
+   "in_place": true,
+   "loop": true,
+   "seconds": 8.0,
+   "web_step": 4
+  },
+  "TurnLeft": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "TurnRight": {
+   "frames": 27,
+   "in_place": true,
+   "loop": false,
+   "seconds": 0.9,
+   "web_step": 1
+  },
+  "Walk": {
+   "frames": 36,
+   "in_place": true,
+   "loop": true,
+   "seconds": 1.2,
+   "speed": 0.95,
+   "web_step": 1
+  }
+ }
+}

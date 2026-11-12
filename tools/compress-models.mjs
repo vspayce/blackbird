@@ -10,7 +10,7 @@ import draco3d from 'draco3dgltf';
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const DIR = 'public/models';
+const DIR = process.env.MODELS_DIR || 'public/models';  // (art/polish_humans.py --dry points this elsewhere)
 const SETS = new Set(['burritt', 'hopkins', 'kearny', 'palace', 'stmark']);
 
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
