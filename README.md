@@ -40,6 +40,11 @@ period clothes fitted to each body, the game rig and Idle / Walk / Talk /
 LieBack clips. It saves `art/humans/<name>.blend` and exports
 `public/models/<name>.glb`. It needs the MPFB extension and MakeHuman asset
 packs; setup is described at the top of the script. See `CREDITS.md`.
+`art/polish_humans.py` then gives the saved blends their finished animation
+(procedural walk, run, idle, talk, kneel, think, point, nod, shrug, turns,
+the policemen's guard and note-taking), cloth normal maps and blink shape
+keys, and re-exports the GLBs; it needs only `pip install bpy`
+(`python3 art/polish_humans.py -- --only holmes`). See `docs/SETUP.md`.
 
 ```bash
 BLENDER_USER_CONFIG=art/.blender-config /Applications/Blender.app/Contents/MacOS/Blender -b \
@@ -50,8 +55,13 @@ BLENDER_USER_CONFIG=art/.blender-config /Applications/Blender.app/Contents/MacOS
 
 Burritt Alley and Bush Street are built by `art/build_set.py` (no add-ons
 needed), which saves `art/set/burritt.blend` and exports
-`public/models/burritt.glb`. `src/world/alley.js` keeps the layout and
-colliders and falls back to plain boxes if the model is missing.
+`public/models/burritt.glb`: paving, fronts, lamps, wires, the fence, the
+billboard and the alley's clutter. Its pieces are in `art/alleykit.py` and its
+painted textures (colour, normal and roughness sets, the poster atlas) in
+`art/alleytex.py`. `src/world/alley.js` keeps the layout and colliders and
+falls back to plain boxes if the model is missing. `art/preview_set.py`
+renders look-dev stills of the set (Cycles, CPU) from the player's eye height.
+After a build run `npm run compress burritt` to make the GLB's textures WebP.
 
 ```bash
 /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python art/build_set.py

@@ -8,9 +8,9 @@ import { gltfLoader } from '../core/gltf.js';
 const ALLEY_HALF = 2.5;
 export const FENCE_Z = -22;
 
-// The modelled set (art/build_set.py): buildings, lamps, wires and clutter.
-// Without it the alley falls back to the boxes below, which always provide
-// the colliders.
+// The modelled set (art/build_set.py): paving, buildings, lamps, wires, the
+// fence, the billboard and the clutter. Without it the alley falls back to
+// the boxes and planes below (the blockout), which always provide the colliders.
 let set = null;
 export function loadSet() {
   return gltfLoader.loadAsync('models/burritt.glb')
@@ -45,6 +45,27 @@ export class Alley {
   useSet() {
     this.blockout.visible = false;
     this.group.add(set);
+    // solid things the modelled set has and the blockout has not (art/build_set.py prints this list):
+    // [x0, z0, x1, z1, height]
+    for (const [x0, z0, x1, z1, h] of [
+      [1.55, -5.75, 2.5, 1.3, 5.2],       // the back stair on the right wall
+      [-2.5, -4.8, -1.4, -2.4, 1.6],      // crates and sacks
+      [-2.5, 2.3, -1.1, 5.2, 1.0],        // handcart
+      [-2.5, -12.6, -1.55, -11.2, 0.7],   // cellar doors
+      [-2.5, -14.9, -1.6, -12.65, 0.9],   // second ash can, rubbish, a ladder
+      [1.5, -12.7, 2.5, -11.0, 0.9],      // crate and bottle case
+      [1.75, -14.15, 2.5, -12.95, 2.5],   // stacked timber
+      [-2.42, 8.18, -2.14, 8.46, 0.8], [2.14, 8.18, 2.42, 8.46, 0.8],   // corner posts at the alley mouth
+      [-13.6, 8.0, -12.2, 9.0, 1.2],      // barrel and crates before the hardware store
+      [26.85, 8.0, 27.55, 8.95, 1.0],     // barrel by the saloon
+      [14.9, 8.7, 15.7, 9.4, 1.0],        // sandwich board
+      [5.5, 9.25, 5.9, 9.65, 0.9],        // hydrant
+      [16.3, 9.52, 24.3, 9.72, 1.1],      // hitching posts before the saloon
+      [19.1, 9.9, 21.75, 10.65, 1.0],     // horse trough and pump
+      [-27.3, 20.35, -20.9, 20.55, 1.1],  // hitching rail at the livery stable
+      [-28.4, 18.2, -22.2, 20.1, 1.9],    // delivery wagon and its pole
+      [-20.2, 21.2, -18.25, 22.0, 1.0],   // feed barrel and sacks
+    ]) this.colliders.push(new THREE.Box3(new THREE.Vector3(x0, 0, z0), new THREE.Vector3(x1, h, z1)));
   }
 
   box(w, h, d, material, x, y, z, collide = true, into = this.blockout) {
@@ -59,30 +80,30 @@ export class Alley {
     const street = new THREE.MeshStandardMaterial({ map: T.cobbles(30, 7), roughness: 0.42, metalness: 0.05 });
     const s = new THREE.Mesh(new THREE.PlaneGeometry(60, 14), street);
     s.rotation.x = -Math.PI / 2; s.position.set(0, 0, 15);
-    this.group.add(s);
+    this.blockout.add(s);   // the set brings its own paving
 
     const alley = new THREE.MeshStandardMaterial({ map: T.cobbles(2.5, 15), roughness: 0.5 });
     const a = new THREE.Mesh(new THREE.PlaneGeometry(ALLEY_HALF * 2, 30), alley);
     a.rotation.x = -Math.PI / 2; a.position.set(0, 0, -7);
-    this.group.add(a);
+    this.blockout.add(a);
 
     // cable car slot and rails down the middle of Bush Street
     const iron = new THREE.MeshStandardMaterial({ color: '#4a4a4c', roughness: 0.3, metalness: 0.8 });
     for (const z of [14.2, 15.0, 15.8]) {
       const r = new THREE.Mesh(new THREE.BoxGeometry(60, 0.02, z === 15.0 ? 0.04 : 0.08), z === 15.0 ? new THREE.MeshBasicMaterial({ color: '#050505' }) : iron);
       r.position.set(0, 0.01, z);
-      this.group.add(r);
+      this.blockout.add(r);
     }
     // kerbs
     const stone = new THREE.MeshStandardMaterial({ color: '#5d5a54', roughness: 0.8 });
-    this.box(23.5, 0.15, 1.6, stone, -14.25, 0.075, 8.8, false, this.group);
-    this.box(23.5, 0.15, 1.6, stone, 14.25, 0.075, 8.8, false, this.group);
-    this.box(60, 0.15, 1.6, stone, 0, 0.075, 21.2, false, this.group);
+    this.box(23.5, 0.15, 1.6, stone, -14.25, 0.075, 8.8, false);
+    this.box(23.5, 0.15, 1.6, stone, 14.25, 0.075, 8.8, false);
+    this.box(60, 0.15, 1.6, stone, 0, 0.075, 21.2, false);
 
     // the drop beyond the fence: a weedy ledge, then the lights of Stockton Street far below
     const ledge = new THREE.Mesh(new THREE.PlaneGeometry(6, 2.2), new THREE.MeshStandardMaterial({ color: '#2a2b1f', roughness: 1 }));
     ledge.rotation.x = -Math.PI / 2; ledge.position.set(0, -0.25, FENCE_Z - 1.2);
-    this.group.add(ledge);
+    this.blockout.add(ledge);   // the set's ledge is a hair lower, at -0.26
     const pts = [];
     for (let i = 0; i < 60; i++) pts.push((Math.random() - 0.5) * 70, -14 - Math.random() * 6, -45 - Math.random() * 40);
     const g = new THREE.BufferGeometry();
@@ -157,25 +178,25 @@ export class Alley {
     // billboard on the right wall at the dead end
     const bill = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), new THREE.MeshStandardMaterial({ map: T.poster(), roughness: 0.95 }));
     bill.position.set(2.44, 2.6, -19.5); bill.rotation.y = -Math.PI / 2;
-    this.group.add(bill);
+    this.blockout.add(bill);   // the set has the hoarding, same place, same words
   }
 
   buildFence() {
     const wood = new THREE.MeshStandardMaterial({ map: T.planks(1, 1, [70, 60, 46]), roughness: 0.95 });
     const z = FENCE_Z;
-    // boards with a gap where Archer went back against it
+    // boards with a gap where Archer went back against it (blockout; the set has the fence, gap in the same place)
     for (let x = -2.4; x < 2.45; x += 0.2) {
       if (x > 0.35 && x < 1.15) continue;
-      this.box(0.18, 1.9, 0.04, wood, x, 0.95, z, false, this.group);
+      this.box(0.18, 1.9, 0.04, wood, x, 0.95, z, false);
     }
-    this.box(5, 0.1, 0.08, wood, 0, 1.6, z - 0.05, false, this.group);
-    this.box(5, 0.1, 0.08, wood, 0, 0.4, z - 0.05, false, this.group);
+    this.box(5, 0.1, 0.08, wood, 0, 1.6, z - 0.05, false);
+    this.box(5, 0.1, 0.08, wood, 0, 0.4, z - 0.05, false);
     // snapped boards lying outward on the ledge
     for (const [x, rz, ry] of [[0.5, 0.2, 0.3], [0.9, -0.15, -0.4], [0.7, 0.05, 0.1]]) {
       const b = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.2, 0.04), wood);
       b.position.set(x, -0.2, z - 0.9);
       b.rotation.set(-Math.PI / 2 + 0.15, ry, rz);
-      this.group.add(b);
+      this.blockout.add(b);
     }
     this.colliders.push(new THREE.Box3(new THREE.Vector3(-2.5, 0, z - 0.3), new THREE.Vector3(2.5, 2, z + 0.25)));
   }

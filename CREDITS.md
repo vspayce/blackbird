@@ -2,7 +2,8 @@
 
 Characters are built with [MPFB](http://static.makehumancommunity.org/mpfb.html)
 (MakeHuman for Blender) from MakeHuman community assets, then dressed and
-animated by `art/build_humans.py`.
+animated by `art/build_humans.py`; the clips, cloth normal maps and blink shapes
+are generated in code by `art/polish_humans.py` (no outside assets).
 
 ## CC-BY assets (attribution required)
 

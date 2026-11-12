@@ -196,7 +196,9 @@ All in `art/`. Each writes a `.blend` you can open and a `.glb` in
 | `build_humans.py` | the cast: Holmes, Watson, Polhaus, Kelly, Archer, Gutman, Wilmer, Cairo, Wren, Brigid | `BLENDER_USER_CONFIG=art/.blender-config Blender -b --python art/build_humans.py -- [--only holmes] [--render dir]` |
 | `build_set.py` | Burritt Alley and Bush Street | `Blender -b --factory-startup --python art/build_set.py -- [--render prefix]` |
 | `build_hopkins.py` | the Mark Hopkins Institute, grounds, street | `Blender -b --factory-startup --python art/build_hopkins.py -- [--render prefix]` |
-| `setkit.py` | shared kit for the two set builders | (imported) |
+| `setkit.py` | shared kit for the set builders | (imported) |
+| `alleykit.py`, `alleytex.py` | Burritt Alley's own pieces (walls with openings, sashes, bays, shopfronts, street furniture, clutter) and its painted PBR textures and poster atlas | (imported by `build_set.py`) |
+| `preview_set.py` | look-dev stills of the alley set: temporary gaslights at the `Lamp_*` markers, fog, Cycles on the CPU | `Blender -b --python art/preview_set.py -- <out prefix> [shot ...] [--res 960x540] [--samples 24] [--flat]` |
 
 (`Blender` = `/Applications/Blender.app/Contents/MacOS/Blender`.)
 
@@ -225,6 +227,18 @@ one mesh per material, which keeps draw calls low. Textures (brick, ashlar,
 clapboard, parquet, Persian rugs, frescoes, book spines) are generated with
 numpy. The Hopkins script also writes `hopkins.json`: colliders, rooms, lamp
 positions, interaction points and ground levels for the game.
+
+The alley set (`build_set.py`) goes further than the others: its walls are
+built with real openings and recessed sashes, its meshes are split by place as
+well as by material (`brick_red.alley`, `brick_red.near`, ...) so that each is
+lit by only a few lamps, and each tileable material carries colour, normal and
+roughness maps. The `.blend` holds no lights; `Lamp_0`..`Lamp_6` empties mark
+the lamp glass (the alley's bracket lamp last). The script ends by printing
+the solid things it added and their boxes, which `src/world/alley.js` (and the
+Unity port's `Chapter1.cs`) mirror as colliders. It also runs with Blender as
+a Python module (`pip install bpy`, then `python3 art/build_set.py`); that
+build has no Draco, so `npm run compress burritt` afterwards does the
+geometry as well as the textures.
 
 ## 7. Testing: screenshots of the real game
 
@@ -278,6 +292,17 @@ send touch events through a CDP session.
   not a portrait of the actor.
 
 ### Compressing models for download
+
+**Polish pass for the cast** (`art/polish_humans.py`, with `art/humananim.py` and `art/humanlook.py`). Run it after
+`build_humans.py`, or on the saved blends as they are; it needs only Blender as a Python module (`pip install bpy`),
+not MPFB: `python3 art/polish_humans.py -- [--only holmes,watson] [--dry some_dir]`. For each character it packs the
+skin and eye textures into the blend, re-weights the coat skirt and draws the suit in under the coat, adds generated
+normal maps for the cloth (`<name>_..._n` images) and `Blink` / `BlinkL` / `BlinkR` shape keys, replaces every clip
+with a procedural one (IK-planted feet; `walk_speed` and `run_speed` in the rig's extras are the ground speeds the
+cycles are made for), saves the blend, exports the GLB, slims its animation data and runs the compress step. It also
+writes `art/humans/clips.json`: every clip of every character with its length, loop flag and speed.
+`python3 art/review_humans.py -- --out dir --only holmes --stills --clips Walk,Idle` renders review sheets (Cycles,
+CPU). It is safe to run the polish twice.
 
 After any Blender build, run `npm run compress` (or `npm run compress -- holmes stmark` for some). It turns the
 models' textures into WebP (character skin kept at 2048 px for the faces, sets capped at 1024) and keeps Draco
